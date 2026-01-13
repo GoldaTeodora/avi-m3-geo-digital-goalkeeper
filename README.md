@@ -69,7 +69,7 @@ git clone https://github.com/GoldaTeodora/avi-m3-geo-digital-goalkeeper.git
 cd avi-m3-geo-digital-goalkeeper
 
 
-### 2. Criar ambiente virtual
+### 2. Criar ambiente virtual 11
 
 ```bash
 python -m venv .venv
