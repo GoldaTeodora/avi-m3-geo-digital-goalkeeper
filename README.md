@@ -4,7 +4,6 @@
 Projeto desenvolvido no âmbito da unidade curricular **Apresentação e Visualização da Informação (AVI)** — Mestrado.
 
 O objetivo é analisar o **comportamento defensivo e o desempenho do guarda-redes** através de **KPIs espaciais e temporais**, suportados por visualizações interativas em **Streamlit**.
----
 
 Criar um **painel analítico (dashboard)** que permita:
 - Analisar o **posicionamento do guarda-redes**
@@ -16,8 +15,6 @@ O projeto segue uma abordagem orientada a:
 - **Persona** (Treinador Principal vs Treinador de Guarda-Redes)
 - **Contexto de análise**
 - **Evidência baseada em dados**
-
----
 
 ## Indicadores implementados e que falta Implementar (KPIs)
 
@@ -37,11 +34,8 @@ O projeto segue uma abordagem orientada a:
 - **PI 5 — Canal de Progressão das Ameaças**  
   Identificação do corredor preferencial (esquerdo, central, direito).
 
----
 
-## 🗂️ Estrutura do Projeto
-
-```
+## Estrutura do Projeto
 
 avi-m3-geo-digital-goalkeeper/
 │
@@ -65,23 +59,20 @@ avi-m3-geo-digital-goalkeeper/
 ├── requirements.txt            # Dependências
 └── README.md
 
-````
 
----
 
-## ▶️ Como Executar a Aplicação
+## Como Executar a Aplicação
 
 ### 1. Clonar o repositório
 ```bash
 git clone https://github.com/GoldaTeodora/avi-m3-geo-digital-goalkeeper.git
 cd avi-m3-geo-digital-goalkeeper
-````
+
 
 ### 2. Criar ambiente virtual
 
 ```bash
 python -m venv .venv
-```
 
 Ativar:
 
@@ -89,7 +80,7 @@ Ativar:
 
 ```bash
 .venv\Scripts\activate
-```
+
 
 * **Mac / Linux**
 
@@ -101,15 +92,13 @@ source .venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
-```
+
 
 ### 4. Executar o Streamlit
 
 ```bash
 streamlit run app/streamlit_app.py
-```
 
----
 
 ## 📊 Dados
 
@@ -121,9 +110,7 @@ Os **datasets não estão incluídos no repositório** por motivos de:
 
 A aplicação assume a existência de ficheiros CSV em:
 
-```
 data/raw/
-```
 
 Com colunas como:
 
