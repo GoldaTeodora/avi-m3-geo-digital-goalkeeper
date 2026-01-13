@@ -29,7 +29,7 @@ from src.kpis import (
 )
 
 from src.visualizations import (
-    plot_pi1_positional_distribution,
+    plot_pi1_positional_distribution_plotly,
     plot_pi2_distance_travelled,
     plot_pi3_threat_frequency_interactive,
     plot_pi4_reaction_intensity,
@@ -283,41 +283,43 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
 
     kpis = compute_kpis(X_persona)
 
-    # ==================================================
-    # DASHBOARD — TREINADOR PRINCIPAL
-    # ==================================================
-    if st.session_state.persona == "Treinador Principal":
+  
+# ==================================================
+# DASHBOARD — TREINADOR PRINCIPAL
+# ==================================================
+if st.session_state.persona == "Treinador Principal":
 
-        st.header(" Análise Estratégica Defensiva")
-        st.caption("Contexto: Pós-Jogo")
+    st.header("📊 Análise Estratégica Defensiva")
+    st.caption("Contexto: Pós-Jogo")
 
-        selected_pi = st.sidebar.radio(
-            "Selecionar indicador",
-            [
-                "PI 3 — Origem Espacial das Ameaças",
-                "PI 5 — Canal de Progressão das Ameaças"
-            ]
-        )
+    selected_pi = st.sidebar.radio(
+        "Selecionar indicador",
+        [
+            "PI 3 — Origem Espacial das Ameaças",
+            "PI 5 — Canal de Progressão das Ameaças"
+        ],
+        key="pi_tr_principal"
+    )
 
-        if selected_pi == "PI 3 — Origem Espacial das Ameaças":
+    if selected_pi == "PI 3 — Origem Espacial das Ameaças":
+        heatmap = kpis["pi3"]["heatmap"]
+        fig = plot_pi3_threat_frequency_interactive(heatmap)
+        fig.update_layout(height=int(500 * fig_scale))
+        st.plotly_chart(fig, width="stretch")
 
-            heatmap = kpis["pi3"]["heatmap"]
-            fig = plot_pi3_threat_frequency_interactive(heatmap)
+    elif selected_pi == "PI 5 — Canal de Progressão das Ameaças":
+        pi5 = pi5_threat_progression_channels(X_persona)
+        fig = plot_pi5_threat_progression_channels(pi5)
+        st.plotly_chart(fig, width="stretch")
 
-            fig.update_layout(height=int(500 * fig_scale))
-            st.plotly_chart(fig, width="stretch")
 
-        else:
-            pi5 = pi5_threat_progression_channels(X_persona)
-            fig = plot_pi5_threat_progression_channels(pi5)
-            st.plotly_chart(fig, width="stretch")
+# ==================================================
+# DASHBOARD — TREINADOR DE GUARDA-REDES
+# ==================================================
+elif st.session_state.persona == "Treinador de Guarda-Redes":
 
-    # ==================================================
-    # DASHBOARD — TREINADOR DE GUARDA-REDES
-    # ==================================================
-    else:
-     st.header("🧤 Análise do Guarda-Redes")
-     st.caption("Contexto: Pós-Jogo")
+    st.header("🧤 Análise do Guarda-Redes")
+    st.caption("Contexto: Pós-Jogo")
 
     selected_pi = st.sidebar.radio(
         "Selecionar indicador (Guarda-Redes)",
@@ -325,68 +327,57 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
             "PI 1 — Distribuição Posicional",
             "PI 2 — Distância Percorrida",
             "PI 4 — Intensidade de Reação"
-        ]
+        ],
+        key="pi_gr"
     )
 
-   
-
-
-     # ==================================================
-     # PI 1 — Distribuição Posicional
-     # ================================================== 
+    # --------------------------------------------------
+    # PI 1 — Distribuição Posicional
+    # --------------------------------------------------
     if selected_pi == "PI 1 — Distribuição Posicional":
 
-        positions = kpis["pi1"]["positions"].rename(
-          columns={"x": "#x0", "y": "#y0"}
-        )
+        pi1 = kpis["pi1"]
 
-        st.write("DEBUG PI1")
-        st.write("positions shape:", positions.shape)
-        st.write("columns:", positions.columns.tolist())
-  
-        if "#x0" in positions.columns:
-         st.write("x0 válidos:", positions["#x0"].dropna().shape[0])
-        if "#y0" in positions.columns:
-         st.write("y0 válidos:", positions["#y0"].dropna().shape[0])
+        if pi1["positions"].empty:
+            st.warning("Dados insuficientes para análise posicional.")
+            st.stop()
 
-        fig = plot_pi1_positional_distribution(
-          positions,
-         kpis["pi1"]["mean_position"]
-        )
+        fig = plot_pi1_positional_distribution_plotly(
+              positions,
+              kpis["pi1"]["mean_position"],
+              kpis["pi1"]["tactical_reading"]
+)
 
         st.pyplot(fig)
 
-
-
-
-    # ==================================================
+    # --------------------------------------------------
     # PI 2 — Distância Percorrida
-    # ==================================================
+    # --------------------------------------------------
     elif selected_pi == "PI 2 — Distância Percorrida":
 
         distances = kpis["pi2"]["instant_distances"]
 
         if distances is None or len(distances) == 0:
-            st.warning("Sem dados de deslocamento para os filtros atuais.")
+            st.warning("Sem dados de deslocamento.")
             st.stop()
 
         fig = plot_pi2_distance_travelled(distances)
         st.pyplot(fig)
 
-    # ==================================================
+    # --------------------------------------------------
     # PI 4 — Intensidade de Reação
-    # ==================================================
-    else:
+    # --------------------------------------------------
+    elif selected_pi == "PI 4 — Intensidade de Reação":
 
         speeds = kpis["pi4"]["speed_series"]
 
         if speeds is None or len(speeds) == 0:
-            st.warning("Sem dados de velocidade para os filtros atuais.")
+            st.warning("Sem dados de velocidade.")
             st.stop()
 
         fig = plot_pi4_reaction_intensity(
             speeds,
-            kpis["pi4"]["mean_speed"],
-            kpis["pi4"]["max_speed"]
+            pi1["mean_speed"],
+            pi1["max_speed"]
         )
         st.pyplot(fig)
