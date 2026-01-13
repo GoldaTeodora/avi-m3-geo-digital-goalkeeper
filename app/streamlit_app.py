@@ -361,6 +361,35 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
 
        st.sidebar.markdown("### Visualização do PI 1")
 
+       col1, col2 = st.columns(2)
+
+       with col1:
+           view_mode = st.radio(
+               "Modo de visualização",
+               ["Densidade", "Pontinhos"],
+               horizontal=True
+            )
+
+       with col2:
+            zone_color_mode = st.radio(
+            "Cores das zonas",
+            ["Neutro", "Semântico"],
+            horizontal=True
+        )
+
+       pi1 = kpis["pi1"]
+
+       fig = plot_pi1_positional_distribution_plotly(
+          positions=pi1["positions"],
+          mean_position=pi1["mean_position"],
+          tactical_reading=pi1["tactical_reading"],
+          view_mode=view_mode,
+          zone_color_mode=zone_color_mode
+)
+
+
+       st.plotly_chart(fig, use_container_width=True)
+
        view_mode = st.sidebar.radio(
            "Modo de visualização",
            ["Pontinhos (posições)", "Densidade (padrão)"],

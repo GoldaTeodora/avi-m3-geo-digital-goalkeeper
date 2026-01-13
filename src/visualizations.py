@@ -18,27 +18,18 @@ def plot_pi1_positional_distribution_plotly(
     positions: pd.DataFrame,
     mean_position: tuple,
     tactical_reading: str,
-    view_mode: str = "Pontinhos (posições)",
-    zone_color_mode: str = "Semântico (Azul/Verde/Vermelho)"
+    view_mode: str = "Densidade",
+    zone_color_mode: str = "Neutro"
 ):
-
-    if positions is None or positions.empty:
-        fig = go.Figure()
-        fig.update_layout(
-            title="PI 1 — Distribuição Posicional do Guarda-Redes",
-            plot_bgcolor="#0E0E0E",
-            paper_bgcolor="#0E0E0E"
-        )
-        return fig
-
-    # Subamostragem (performance)
-    MAX_POINTS = 3000
-    if len(positions) > MAX_POINTS:
-        positions = positions.sample(MAX_POINTS, random_state=42)
+    import numpy as np
+    from scipy.stats import gaussian_kde
+    import plotly.graph_objects as go
 
     fig = go.Figure()
 
+    # -----------------------------
     # Campo normalizado
+    # -----------------------------
     fig.update_xaxes(range=[0, 1], visible=False, fixedrange=True)
     fig.update_yaxes(
         range=[0, 1],
@@ -48,115 +39,137 @@ def plot_pi1_positional_distribution_plotly(
     )
 
     fig.update_layout(
-        title="PI 1 — Distribuição Posicional do Guarda-Redes",
         plot_bgcolor="#0E0E0E",
         paper_bgcolor="#0E0E0E",
-        margin=dict(l=40, r=220, t=90, b=40),  # espaço lateral p/ legendas
-        legend=dict(
-            bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white")
-        )
+        margin=dict(l=120, r=40, t=60, b=40),
+        title="PI 1 — Distribuição Posicional do Guarda-Redes",
+        legend=dict(font=dict(color="white"))
     )
 
-    # Baliza
-    fig.add_shape(
-        type="line",
-        x0=0.44, x1=0.56,
-        y0=0.0, y1=0.0,
-        line=dict(color="white", width=3)
-    )
+    # -----------------------------
+    # Limites das zonas (FIXOS)
+    # -----------------------------
+    Z_LOW = 0.18
+    Z_MID = 0.35
 
-    # Área defensiva
-    fig.add_shape(
-        type="rect",
-        x0=0.30, x1=0.70,
-        y0=0.00, y1=0.18,
-        line=dict(color="white", dash="dash"),
-        fillcolor="rgba(0,0,0,0)"
-    )
-
-    # Zonas funcionais (APENAS CORES — SEM TEXTO)
-    if zone_color_mode == "Semântico (Azul/Verde/Vermelho)":
-        zones = [
-            (0.00, 0.18, "rgba(31,119,180,0.25)"),
-            (0.18, 0.35, "rgba(44,160,44,0.25)"),
-            (0.35, 1.00, "rgba(214,39,40,0.25)")
-        ]
+    # -----------------------------
+    # Zonas (cores de fundo)
+    # -----------------------------
+    if zone_color_mode == "Semântico":
+        colors = {
+            "low": "rgba(31,119,180,0.25)",
+            "mid": "rgba(44,160,44,0.25)",
+            "high": "rgba(214,39,40,0.25)"
+        }
     else:
-        zones = [
-            (0.00, 0.18, "rgba(200,200,200,0.15)"),
-            (0.18, 0.35, "rgba(160,160,160,0.15)"),
-            (0.35, 1.00, "rgba(120,120,120,0.15)")
-        ]
+        colors = {
+            "low": "rgba(180,180,180,0.12)",
+            "mid": "rgba(140,140,140,0.12)",
+            "high": "rgba(100,100,100,0.12)"
+        }
 
-    for y0, y1, color in zones:
+    fig.add_shape(type="rect", x0=0, x1=1, y0=0, y1=Z_LOW,
+                  fillcolor=colors["low"], line=dict(width=0), layer="below")
+
+    fig.add_shape(type="rect", x0=0, x1=1, y0=Z_LOW, y1=Z_MID,
+                  fillcolor=colors["mid"], line=dict(width=0), layer="below")
+
+    fig.add_shape(type="rect", x0=0, x1=1, y0=Z_MID, y1=1,
+                  fillcolor=colors["high"], line=dict(width=0), layer="below")
+
+    # -----------------------------
+    # Linhas de separação (sempre visíveis)
+    # -----------------------------
+    for y in [Z_LOW, Z_MID]:
         fig.add_shape(
-            type="rect",
+            type="line",
             x0=0, x1=1,
-            y0=y0, y1=y1,
-            fillcolor=color,
-            line=dict(width=0),
-            layer="below"
+            y0=y, y1=y,
+            line=dict(color="white", dash="dot", width=1)
         )
 
-    # Scatter ou densidade
-    x = positions["#x0"].values
-    y = positions["#y0"].values
+    # -----------------------------
+    # Labels FORA do gráfico (lado esquerdo)
+    # -----------------------------
+    labels = [
+        ("Zona Alta\nComportamento sweeper", (Z_MID + 1) / 2),
+        ("Zona Média\nZona de cobertura", (Z_LOW + Z_MID) / 2),
+        ("Zona Baixa\nLinha da baliza", Z_LOW / 2)
+    ]
 
-    if view_mode == "Pontinhos (posições)":
+    for text, y in labels:
+        fig.add_annotation(
+            x=-0.05,
+            y=y,
+            xref="paper",
+            yref="y",
+            text=text,
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=1,
+            arrowcolor="white",
+            font=dict(color="white", size=12),
+            align="right"
+        )
+
+    # -----------------------------
+    # MODO: DENSIDADE
+    # -----------------------------
+    if view_mode == "Densidade" and len(positions) > 30:
+        x = positions["#x0"].values
+        y = positions["#y0"].values
+
+        kde = gaussian_kde(np.vstack([x, y]), bw_method=0.25)
+        xi, yi = np.mgrid[0:1:200j, 0:1:200j]
+        zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
+
+        fig.add_trace(
+            go.Contour(
+                x=xi[:, 0],
+                y=yi[0, :],
+                z=zi.T,
+                colorscale="Blues",
+                ncontours=10,
+                opacity=0.9,
+                showscale=True,
+                hoverinfo="skip",
+                name="Densidade"
+            )
+        )
+
+    # -----------------------------
+    # MODO: PONTINHOS
+    # -----------------------------
+    if view_mode == "Pontinhos":
         fig.add_trace(
             go.Scatter(
-                x=x,
-                y=y,
+                x=positions["#x0"],
+                y=positions["#y0"],
                 mode="markers",
                 marker=dict(size=4, color="rgba(255,255,255,0.35)"),
-                name="Posições",
-                hovertemplate=(
-                    "Largura: %{x:.2f}<br>"
-                    "Profundidade: %{y:.2f}"
-                    "<extra></extra>"
-                )
+                name="Posições"
             )
         )
-    else:
-        if len(x) > 30:
-            values = np.vstack([x, y])
-            kde = gaussian_kde(values, bw_method=0.25)
 
-            xi, yi = np.mgrid[0:1:200j, 0:1:200j]
-            zi = kde(np.vstack([xi.flatten(), yi.flatten()]))
-            zi = zi.reshape(xi.shape)
-
-            fig.add_trace(
-                go.Contour(
-                    x=xi[:, 0],
-                    y=yi[0, :],
-                    z=zi.T,
-                    ncontours=8,
-                    colorscale="Blues",
-                    opacity=0.85,
-                    contours=dict(coloring="fill"),
-                    showscale=True,
-                    hoverinfo="skip",
-                    name="Densidade Posicional"
-                )
-            )
-
-    # Posição média
+    # -----------------------------
+    # Guarda-redes (posição média)
+    # -----------------------------
     fig.add_trace(
         go.Scatter(
             x=[mean_position[0]],
             y=[mean_position[1]],
             mode="markers",
             marker=dict(
-                size=14,
-                color="#FFD700",
+                size=22,
+                color="white",
                 line=dict(color="black", width=2)
             ),
-            name="Posição Média"
+            name="Guarda-Redes"
         )
     )
 
+    # Linha da profundidade média
     fig.add_shape(
         type="line",
         x0=0, x1=1,
@@ -165,64 +178,15 @@ def plot_pi1_positional_distribution_plotly(
         line=dict(color="#FFD700", width=2, dash="dot")
     )
 
-    # Guarda-redes
-    fig.add_trace(
-        go.Scatter(
-            x=[mean_position[0]],
-            y=[mean_position[1]],
-            mode="markers",
-            marker=dict(
-                size=26,
-                color="rgba(255,255,255,0.95)",
-                line=dict(color="black", width=2)
-            ),
-            name="Guarda-Redes"
-        )
-    )
-
-    # ---------- LEGENDAS EXTERNAS (FORA DO GRÁFICO) ----------
+    # Perfil tático
     fig.add_annotation(
-        x=1.05, y=0.78,
-        text="🔴 Zona Alta<br><span style='font-size:11px'>Comportamento sweeper</span>",
-        showarrow=False,
-        align="left",
-        font=dict(color="white", size=13),
-        xref="paper", yref="paper"
-    )
-
-    fig.add_annotation(
-        x=1.05, y=0.52,
-        text="🟢 Zona Média<br><span style='font-size:11px'>Zona de cobertura</span>",
-        showarrow=False,
-        align="left",
-        font=dict(color="white", size=13),
-        xref="paper", yref="paper"
-    )
-
-    fig.add_annotation(
-        x=1.05, y=0.26,
-        text="🔵 Zona Baixa<br><span style='font-size:11px'>Linha da baliza</span>",
-        showarrow=False,
-        align="left",
-        font=dict(color="white", size=13),
-        xref="paper", yref="paper"
-    )
-
-    # Texto explicativo superior
-    fig.add_annotation(
-        x=0.5, y=1.08,
-        text="Eixo vertical = profundidade do guarda-redes (baliza → campo)",
-        showarrow=False,
-        font=dict(size=12, color="rgba(255,255,255,0.7)"),
-        xanchor="center"
-    )
-
-    fig.add_annotation(
-        x=0.5, y=1.02,
+        x=0.5,
+        y=1.05,
+        xref="paper",
+        yref="paper",
         text=f"Perfil: {tactical_reading}",
         showarrow=False,
-        font=dict(size=13, color="#FFD700"),
-        xanchor="center"
+        font=dict(size=13, color="#FFD700")
     )
 
     return fig
