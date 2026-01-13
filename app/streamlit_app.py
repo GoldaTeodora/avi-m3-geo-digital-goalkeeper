@@ -303,36 +303,39 @@ if st.session_state.persona == "Treinador Principal":
         key="pi_tr_principal"
     )
 
+    # ---------------- PI 3 ----------------
     if selected_pi == "PI 3 — Origem Espacial das Ameaças":
+
         heatmap = kpis["pi3"]["heatmap"]
         fig = plot_pi3_threat_frequency_interactive(heatmap)
         fig.update_layout(height=int(500 * fig_scale))
         st.plotly_chart(fig, width="stretch")
 
+    # ---------------- PI 5 ----------------
     elif selected_pi == "PI 5 — Canal de Progressão das Ameaças":
 
-         pi5 = pi5_threat_progression_channels(X_persona)
+        pi5 = pi5_threat_progression_channels(X_persona)
 
-         if pi5["total_threats"] == 0:
-             st.warning("Não foram detetadas ameaças na zona crítica.")
-             st.stop()
+        if pi5["total_threats"] == 0:
+            st.warning("Não foram detetadas ameaças na zona crítica.")
+        else:
+            fig = plot_pi5_threat_progression_channels(pi5)
+            st.plotly_chart(fig, use_container_width=True)
 
-         fig = plot_pi5_threat_progression_channels(pi5)
-         st.plotly_chart(fig, use_container_width=True)
+            # ---------- Leitura tática ----------
+            dominant_channel = max(
+                pi5["percentages"],
+                key=pi5["percentages"].get
+            )
 
-    # ---------- Leitura tática ----------
-    dominant_channel = max(
-        pi5["percentages"],
-        key=pi5["percentages"].get
-    )
+            st.markdown("### 📌 Leitura Tática")
 
-    st.markdown("### 📌 Leitura Tática")
+            st.info(
+                f"A maioria das ameaças ofensivas **termina no corredor {dominant_channel.lower()}**.\n\n"
+                "Isto indica que, independentemente da origem do ataque, "
+                "a progressão tende a convergir para zonas centrais antes da finalização."
+            )
 
-    st.info(
-        f"A maioria das ameaças ofensivas **termina no corredor {dominant_channel.lower()}**.\n\n"
-        "Isto indica que, independentemente da origem do ataque, "
-        "a progressão tende a convergir para zonas centrais antes da finalização."
-    )
 
 
 
