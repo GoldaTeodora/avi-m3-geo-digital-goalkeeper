@@ -355,6 +355,12 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
 
        st.markdown("### 🧠 Leitura Tática Automática")
 
+       st.caption(
+    "Análise baseada na profundidade média do guarda-redes "
+    "ao longo do jogo (não posição instantânea)."
+)
+
+
        st.write(
           f"""
           **Zona Baixa:** {zone_info['baixo']:.1f}%  

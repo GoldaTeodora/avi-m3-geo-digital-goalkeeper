@@ -89,10 +89,11 @@ def plot_pi1_positional_distribution_plotly(
     # Zonas funcionais
     # --------------------------------------------------
     zones = [
-        (0.00, 0.18, "Zona Baixa", "rgba(31,119,180,0.12)"),
-        (0.18, 0.35, "Zona Média", "rgba(44,160,44,0.12)"),
-        (0.35, 1.00, "Zona Alta", "rgba(214,39,40,0.10)")
-    ]
+    (0.00, 0.18, "Baixa (linha de baliza)", "rgba(31,119,180,0.12)"),
+    (0.18, 0.35, "Média (zona de cobertura)", "rgba(44,160,44,0.12)"),
+    (0.35, 1.00, "Alta (comportamento sweeper)", "rgba(214,39,40,0.10)")
+]
+
 
     for y0, y1, label, color in zones:
         fig.add_shape(
@@ -174,6 +175,35 @@ def plot_pi1_positional_distribution_plotly(
         line=dict(color="#FFD700", width=2, dash="dot")
     )
 
+    
+    # --------------------------------------------------
+    # 🧤 Guarda-redes (representação explícita)
+    # --------------------------------------------------
+    fig.add_trace(
+        go.Scatter(
+             x=[mean_position[0]],
+             y=[mean_position[1]],
+             mode="markers",
+             marker=dict(
+                 size=26,                 # maior que a posição média
+                 color="rgba(255,255,255,0.95)",
+                 line=dict(
+                    color="black",
+                    width=2
+                ),
+              symbol="circle"
+        ),
+        name="Guarda-Redes",
+        hovertemplate=(
+            "<b>Guarda-Redes</b><br>"
+            "x: %{x:.2f}<br>"
+            "y: %{y:.2f}"
+            "<extra></extra>"
+        )
+    )
+)
+
+
     # --------------------------------------------------
     # Perfil tático
     # --------------------------------------------------
@@ -185,6 +215,17 @@ def plot_pi1_positional_distribution_plotly(
         font=dict(size=13, color="#FFD700"),
         xanchor="center"
     )
+
+    fig.add_annotation(
+    x=0.5,
+    y=1.05,
+    text="Eixo vertical = profundidade do guarda-redes (baliza → campo)",
+    showarrow=False,
+    font=dict(size=12, color="rgba(255,255,255,0.7)"),
+    xanchor="center",
+    yanchor="bottom"
+)
+
 
     return fig
 
