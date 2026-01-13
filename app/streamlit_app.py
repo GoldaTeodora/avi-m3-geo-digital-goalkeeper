@@ -25,7 +25,7 @@ from src.kpis import (
     pi2_distance_travelled,
     pi3_threat_frequency_by_zone,
     pi4_reaction_intensity,
-    pi5_threat_progression_sankey
+    pi5_threat_progression_channels
 )
 
 
@@ -34,7 +34,7 @@ from src.visualizations import (
     plot_pi2_distance_travelled,
     plot_pi3_threat_frequency_interactive,
     plot_pi4_reaction_intensity,
-    plot_pi5_threat_progression_sankey
+    plot_pi5_threat_progression_channels
 )
 
 def apply_abc_braga_theme():
@@ -311,9 +311,28 @@ if st.session_state.persona == "Treinador Principal":
 
     elif selected_pi == "PI 5 — Canal de Progressão das Ameaças":
 
-        pi5 = pi5_threat_progression_sankey(X_persona)
-        fig = plot_pi5_threat_progression_sankey(pi5)
-        st.plotly_chart(fig, use_container_width=True)
+         pi5 = pi5_threat_progression_channels(X_persona)
+
+         if pi5["total_threats"] == 0:
+             st.warning("Não foram detetadas ameaças na zona crítica.")
+             st.stop()
+
+         fig = plot_pi5_threat_progression_channels(pi5)
+         st.plotly_chart(fig, use_container_width=True)
+
+    # ---------- Leitura tática ----------
+    dominant_channel = max(
+        pi5["percentages"],
+        key=pi5["percentages"].get
+    )
+
+    st.markdown("### 📌 Leitura Tática")
+
+    st.info(
+        f"A maioria das ameaças ofensivas **termina no corredor {dominant_channel.lower()}**.\n\n"
+        "Isto indica que, independentemente da origem do ataque, "
+        "a progressão tende a convergir para zonas centrais antes da finalização."
+    )
 
 
 

@@ -163,19 +163,25 @@ def pi4_reaction_intensity(X: pd.DataFrame):
     }
 
 
-# =====================================================
+   # =====================================================
 # PI 5 — Canal de Progressão das Ameaças
 # Persona: Treinador Principal
 # =====================================================
-def pi5_threat_progression_sankey(X: pd.DataFrame):
+def pi5_threat_progression_channels(X: pd.DataFrame):
     """
-    PI 5 — Canal de Progressão das Ameaças (Sankey)
-    Unidade: sequência ofensiva
+    PI 5 — Canal de Progressão das Ameaças Ofensivas
+
+    Mede em que corredor (Esquerdo / Central / Direito)
+    a bola se encontra quando a ameaça entra em zona crítica.
     """
 
-    if "#ball_x" not in X.columns or "#ball_y" not in X.columns:
+    required_cols = {"#ball_x", "#ball_y"}
+    if not required_cols.issubset(X.columns):
         raise ValueError("PI5 requer colunas '#ball_x' e '#ball_y'.")
 
+    # -----------------------------
+    # Função de canal (campo normalizado 0–1)
+    # -----------------------------
     def channel(x):
         if x < 0.33:
             return "Esquerdo"
@@ -183,55 +189,34 @@ def pi5_threat_progression_sankey(X: pd.DataFrame):
             return "Direito"
         return "Central"
 
-    flows = []
-
-    current_sequence = []
-
-    for _, row in X.iterrows():
-        current_sequence.append(row)
-
-        # ameaça termina quando entra em zona crítica
-        if row["#ball_y"] > 0.75:
-            df_seq = pd.DataFrame(current_sequence)
-
-            origin = channel(df_seq.iloc[0]["#ball_x"])
-            progression = df_seq["#ball_x"].apply(channel).mode()[0]
-            final = channel(df_seq.iloc[-1]["#ball_x"])
-
-            flows.append((origin, progression, final))
-            current_sequence = []
-
-    counts = {}
-    for f in flows:
-        counts[f] = counts.get(f, 0) + 1
+    counts = {
+        "Esquerdo": 0,
+        "Central": 0,
+        "Direito": 0
+    }
 
     # -----------------------------
-    # Construção dos nós Sankey
+    # Zona crítica ofensiva
     # -----------------------------
-    labels = ["Esquerdo", "Central", "Direito"]
+    CRITICAL_Y = 0.75
 
-    label_index = {label: i for i, label in enumerate(labels)}
+    threats = X[X["#ball_y"] >= CRITICAL_Y]
 
-    sources = []
-    targets = []
-    values = []
+    for _, row in threats.iterrows():
+        c = channel(row["#ball_x"])
+        counts[c] += 1
 
-    for (origin, progression, final), count in counts.items():
-        # origem → progressão
-        sources.append(label_index[origin])
-        targets.append(label_index[progression])
-        values.append(count)
+    total = sum(counts.values())
 
-        # progressão → final
-        sources.append(label_index[progression])
-        targets.append(label_index[final])
-        values.append(count)
+    percentages = {
+        k: (v / total * 100 if total > 0 else 0.0)
+        for k, v in counts.items()
+    }
 
     return {
-        "labels": labels,
-        "sources": sources,
-        "targets": targets,
-        "values": values,
-        "raw_flows": flows  # mantido para debug/análise
-}
+        "counts": counts,
+        "percentages": percentages,
+        "total_threats": total
+    }
+
 

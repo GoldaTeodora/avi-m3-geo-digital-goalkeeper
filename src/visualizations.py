@@ -335,42 +335,39 @@ def plot_pi4_reaction_intensity(
 
 
 # =====================================================
-# PI 5 — CANAL DE PROGRESSÃO DAS AMEAÇAS (BARRAS)
+# PI 5 — Canal de Progressão das Ameaças (BARRAS)
 # =====================================================
-def plot_pi5_threat_progression_sankey(pi5_data):
-    import plotly.graph_objects as go
+def plot_pi5_threat_progression_channels(pi5_data: dict):
+    """
+    Visualização do PI 5 — Canal de Progressão das Ameaças
+    (barras, versão defensável para tese)
+    """
+
+    channels = ["Esquerdo", "Central", "Direito"]
+    counts = [pi5_data["counts"][c] for c in channels]
+    percentages = [pi5_data["percentages"][c] for c in channels]
+
+    colors = ["#4C78A8", "#F2C300", "#4C78A8"]  # Central em destaque
 
     fig = go.Figure(
-        go.Sankey(
-            node=dict(
-                label=pi5_data["labels"],
-                color=["#4C78A8", "#F2C300", "#4C78A8"]
-            ),
-            link=dict(
-                source=pi5_data["sources"],
-                target=pi5_data["targets"],
-                value=pi5_data["values"]
+        data=[
+            go.Bar(
+                x=channels,
+                y=counts,
+                text=[f"{p:.1f}%" for p in percentages],
+                textposition="auto",
+                marker_color=colors
             )
-        )
+        ]
     )
 
     fig.update_layout(
         title="PI 5 — Canal de Progressão das Ameaças Ofensivas",
+        xaxis_title="Canal do Campo",
+        yaxis_title="Número de Ameaças",
         template="plotly_dark",
-        font=dict(size=13)
+        showlegend=False,
+        margin=dict(t=60, b=40, l=40, r=40)
     )
 
     return fig
-
-
-
-
-# =====================================================
-# ALIASES (COMPATIBILIDADE)
-# =====================================================
-def plot_pi3_threat_frequency_by_zone(heatmap):
-    return plot_pi3_threat_frequency_interactive(heatmap)
-
-
-def plot_pi4_reaction_intensity_by_time(speeds, mean_speed, max_speed):
-    return plot_pi4_reaction_intensity(speeds, mean_speed, max_speed)
