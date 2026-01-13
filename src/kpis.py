@@ -13,16 +13,7 @@ import numpy as np
 def pi1_positional_distribution(X: pd.DataFrame):
     """
     PI 1 — Distribuição Posicional do Guarda-Redes
-
-    Requisitos:
-    - Colunas: #x0, #y0
-    - Coordenadas normalizadas [0,1]
-
-    Output:
-    - positions
-    - mean_position
-    - zone_distribution
-    - tactical_reading
+    Persona: Treinador de Guarda-Redes
     """
 
     # -----------------------------
@@ -44,7 +35,7 @@ def pi1_positional_distribution(X: pd.DataFrame):
         }
 
     # -----------------------------
-    # Posição média
+    # Posição média (visual)
     # -----------------------------
     mean_x = positions["#x0"].mean()
     mean_y = positions["#y0"].mean()
@@ -69,12 +60,17 @@ def pi1_positional_distribution(X: pd.DataFrame):
     }
 
     # -----------------------------
+    # 🔑 PROFUNDIDADE DOMINANTE
+    # -----------------------------
+    dominant_y = positions["#y0"].quantile(0.65)
+
+    # -----------------------------
     # Leitura tática automática
     # -----------------------------
-    if mean_y < 0.25:
-        tactical_reading = "Guarda-redes predominantemente baixo"
-    elif mean_y < 0.45:
-        tactical_reading = "Guarda-redes em zona de cobertura"
+    if dominant_y <= ZONE_LOW_Y:
+        tactical_reading = "Guarda-redes de baliza (baixo envolvimento)"
+    elif dominant_y <= ZONE_MID_Y:
+        tactical_reading = "Guarda-redes equilibrado (zona de cobertura)"
     else:
         tactical_reading = "Guarda-redes frequentemente adiantado (sweeper)"
 
@@ -84,6 +80,7 @@ def pi1_positional_distribution(X: pd.DataFrame):
         "zone_distribution": zone_distribution,
         "tactical_reading": tactical_reading
     }
+
 
 
 # =====================================================

@@ -336,6 +336,21 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
     # ==================================================
     if selected_pi == "PI 1 — Distribuição Posicional":
 
+       st.sidebar.markdown("### Visualização do PI 1")
+
+       view_mode = st.sidebar.radio(
+           "Modo de visualização",
+           ["Pontinhos (posições)", "Densidade (padrão)"],
+           index=0
+        )
+
+       zone_color_mode = st.sidebar.radio(
+           "Cores das zonas",
+           ["Semântico (Azul/Verde/Vermelho)", "Neutro"],
+           index=0
+        )
+
+
        pi1 = kpis.get("pi1")
   
        if pi1 is None or pi1.get("positions") is None or pi1["positions"].empty:
@@ -343,17 +358,26 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
            st.stop()
 
        fig = plot_pi1_positional_distribution_plotly(
-           pi1["positions"],
-           pi1["mean_position"],
-           pi1["tactical_reading"]
-        )
+            positions=pi1["positions"],
+            mean_position=pi1["mean_position"],
+            tactical_reading=pi1["tactical_reading"],
+            view_mode=view_mode,
+            zone_color_mode=zone_color_mode
+)
+
 
        st.plotly_chart(fig, use_container_width=True)
 
        zone_info = pi1["zone_distribution"]
        reading = pi1["tactical_reading"]
 
-       st.markdown("### 🧠 Leitura Tática Automática")
+       st.markdown("###  Leitura Tática Automática")
+
+       st.caption(
+    "Análise baseada na profundidade média do guarda-redes "
+    "ao longo do jogo (não posição instantânea)."
+)
+
 
        st.write(
           f"""
@@ -363,7 +387,7 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
           """
         )
 
-       st.info(f"📌 **Interpretação:** {reading}")
+       st.info(f" **Interpretação:** {reading}")
 
 
     # --------------------------------------------------
