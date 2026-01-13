@@ -231,17 +231,37 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
     X_train = load_data()
 
     # --------------------------------------------------
-    # SIDEBAR — CONTROLOS
+    # SIDEBAR — PERFIL DO UTILIZADOR
     # --------------------------------------------------
-    st.sidebar.title("Configurações")
+    st.sidebar.markdown(
+        f"""
+        <div style="
+            background:#000;
+            padding:14px;
+            border-radius:10px;
+            border-left:4px solid #F2C300;
+            color:#fff;
+            margin-bottom:12px;
+        ">
+            👤 <strong>Perfil Ativo</strong><br>
+            <span style="font-size:18px;">{st.session_state.persona}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.sidebar.markdown(f"**Persona:** {st.session_state.persona}")
+    # --------------------------------------------------
+    # SIDEBAR — CONFIGURAÇÕES
+    # --------------------------------------------------
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚙️ Configurações")
 
-    # Escala visual
+    # ⬇️⬇️⬇️ ESTA LINHA TEM DE TER EXATAMENTE ESTA INDENTAÇÃO
     fig_scale = st.sidebar.slider(
         "Escala das visualizações",
         0.5, 1.5, 1.0, 0.1
     )
+
 
     # Intervalo temporal
     frame_start, frame_end = st.sidebar.slider(
@@ -255,16 +275,37 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
         index=1
     )
 
-    context = st.sidebar.selectbox(
-        "Contexto de análise",
-        ["Pós-Jogo", "Treino"]
+   
+
+## --------------------------------------------------
+# CONTEXTO DE ANÁLISE (DEFINIDO PELA PERSONA)
+# --------------------------------------------------
+if st.session_state.persona == "Treinador Principal":
+    data_context = "Jogo"
+    st.sidebar.markdown(
+        "<div style='background:#000;padding:10px;border-radius:8px;color:#fff'>"
+        "📊 <b>Contexto de Análise</b><br>🎥 <b>Pós-Jogo</b>"
+        "</div>",
+        unsafe_allow_html=True
     )
 
-    data_context = "Jogo" if context == "Pós-Jogo" else context
+elif st.session_state.persona == "Treinador de Guarda-Redes":
+    data_context = "Treino"
+    st.sidebar.markdown(
+        "<div style='background:#000;padding:10px;border-radius:8px;color:#fff'>"
+        "📊 <b>Contexto de Análise</b><br>🥅 <b>Treino</b>"
+        "</div>",
+        unsafe_allow_html=True
+    )
 
-    X_filtered = X_train.iloc[frame_start:frame_end:step]
-    X_contextual = infer_game_context_cached(X_filtered)
-    X_persona = (
+
+# --------------------------------------------------
+# APLICAÇÃO DO CONTEXTO AOS DADOS
+# --------------------------------------------------
+X_filtered = X_train.iloc[frame_start:frame_end:step]
+X_contextual = infer_game_context_cached(X_filtered)
+
+X_persona = (
     X_contextual[X_contextual["contexto"] == data_context]
     if "contexto" in X_contextual.columns
     else X_contextual
@@ -274,8 +315,8 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
     # --------------------------------------------------
     # KPIs
     # --------------------------------------------------
-    @st.cache_data
-    def compute_kpis(X):
+@st.cache_data
+def compute_kpis(X):
         return {
             "pi1": pi1_positional_distribution(X),
             "pi2": pi2_distance_travelled(X),
@@ -283,7 +324,7 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
             "pi4": pi4_reaction_intensity(X),
         }
 
-    kpis = compute_kpis(X_persona)
+kpis = compute_kpis(X_persona)
 
   
 # ==================================================
@@ -476,3 +517,11 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
             pi1["max_speed"]
         )
         st.pyplot(fig)
+
+
+        st.sidebar.markdown("---")
+if st.sidebar.button("🔄 Mudar perfil"):
+    st.session_state.page = "persona"
+    st.session_state.authenticated = False
+    st.rerun()
+
