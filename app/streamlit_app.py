@@ -25,16 +25,18 @@ from src.kpis import (
     pi2_distance_travelled,
     pi3_threat_frequency_by_zone,
     pi4_reaction_intensity,
-    pi5_threat_progression_channels
+    pi5_threat_progression_sankey
 )
+
 
 from src.visualizations import (
     plot_pi1_positional_distribution_plotly,
     plot_pi2_distance_travelled,
     plot_pi3_threat_frequency_interactive,
     plot_pi4_reaction_intensity,
-    plot_pi5_threat_progression_channels
+    plot_pi5_threat_progression_sankey
 )
+
 def apply_abc_braga_theme():
     st.markdown(
         """
@@ -308,9 +310,11 @@ if st.session_state.persona == "Treinador Principal":
         st.plotly_chart(fig, width="stretch")
 
     elif selected_pi == "PI 5 — Canal de Progressão das Ameaças":
-        pi5 = pi5_threat_progression_channels(X_persona)
-        fig = plot_pi5_threat_progression_channels(pi5)
-        st.plotly_chart(fig, width="stretch")
+
+        pi5 = pi5_threat_progression_sankey(X_persona)
+        fig = plot_pi5_threat_progression_sankey(pi5)
+        st.plotly_chart(fig, use_container_width=True)
+
 
 
 # ==================================================

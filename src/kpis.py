@@ -167,34 +167,71 @@ def pi4_reaction_intensity(X: pd.DataFrame):
 # PI 5 — Canal de Progressão das Ameaças
 # Persona: Treinador Principal
 # =====================================================
-def pi5_threat_progression_channels(X: pd.DataFrame):
+def pi5_threat_progression_sankey(X: pd.DataFrame):
     """
-    PI 5 — Canal de Progressão das Ameaças Ofensivas
+    PI 5 — Canal de Progressão das Ameaças (Sankey)
+    Unidade: sequência ofensiva
     """
 
-    if "#ball_x" not in X.columns:
-        raise ValueError("PI5 requer coluna '#ball_x'.")
+    if "#ball_x" not in X.columns or "#ball_y" not in X.columns:
+        raise ValueError("PI5 requer colunas '#ball_x' e '#ball_y'.")
 
-    def classify_channel(x):
+    def channel(x):
         if x < 0.33:
             return "Esquerdo"
-        elif x < 0.66:
-            return "Central"
-        else:
+        elif x > 0.66:
             return "Direito"
+        return "Central"
 
-    channels = X["#ball_x"].apply(classify_channel)
+    flows = []
 
-    counts = channels.value_counts().reindex(
-        ["Esquerdo", "Central", "Direito"],
-        fill_value=0
-    )
+    current_sequence = []
 
-    total = counts.sum()
-    percentages = (counts / total * 100) if total > 0 else counts
+    for _, row in X.iterrows():
+        current_sequence.append(row)
+
+        # ameaça termina quando entra em zona crítica
+        if row["#ball_y"] > 0.75:
+            df_seq = pd.DataFrame(current_sequence)
+
+            origin = channel(df_seq.iloc[0]["#ball_x"])
+            progression = df_seq["#ball_x"].apply(channel).mode()[0]
+            final = channel(df_seq.iloc[-1]["#ball_x"])
+
+            flows.append((origin, progression, final))
+            current_sequence = []
+
+    counts = {}
+    for f in flows:
+        counts[f] = counts.get(f, 0) + 1
+
+    # -----------------------------
+    # Construção dos nós Sankey
+    # -----------------------------
+    labels = ["Esquerdo", "Central", "Direito"]
+
+    label_index = {label: i for i, label in enumerate(labels)}
+
+    sources = []
+    targets = []
+    values = []
+
+    for (origin, progression, final), count in counts.items():
+        # origem → progressão
+        sources.append(label_index[origin])
+        targets.append(label_index[progression])
+        values.append(count)
+
+        # progressão → final
+        sources.append(label_index[progression])
+        targets.append(label_index[final])
+        values.append(count)
 
     return {
-        "counts": counts.to_dict(),
-        "percentages": percentages.to_dict(),
-        "total_threats": int(total)
-    }
+        "labels": labels,
+        "sources": sources,
+        "targets": targets,
+        "values": values,
+        "raw_flows": flows  # mantido para debug/análise
+}
+
