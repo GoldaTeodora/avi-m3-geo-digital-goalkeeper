@@ -128,27 +128,40 @@ def plot_pi1_positional_distribution_plotly(
     zones_hover = positions["#y0"].apply(classify_zone)
 
     # --------------------------------------------------
-    # Scatter posicional
+    #  CONTORNOS DE DENSIDADE (KDE)
     # --------------------------------------------------
-    fig.add_trace(
-        go.Scatter(
-            x=positions["#x0"],
-            y=positions["#y0"],
-            mode="markers",
-            marker=dict(
-                size=4,
-                color="rgba(255,255,255,0.25)"
+    from scipy.stats import gaussian_kde
+
+    x = positions["#x0"].values
+    y = positions["#y0"].values
+
+    # Segurança mínima (robustez TRL 6)
+    if len(x) > 20:
+       values = np.vstack([x, y])
+       kde = gaussian_kde(values, bw_method=0.25)
+
+       xi, yi = np.mgrid[0:1:200j, 0:1:200j]
+       zi = kde(np.vstack([xi.flatten(), yi.flatten()]))
+       zi = zi.reshape(xi.shape)
+
+       fig.add_trace(
+           go.Contour(
+               x=xi[:, 0],
+               y=yi[0, :],
+               z=zi.T,
+               ncontours=8,
+               colorscale="Blues",
+               opacity=0.85,
+               contours=dict(
+                    showlines=True,
+                    coloring="fill"
             ),
-            customdata=zones_hover,
-            hovertemplate=(
-                "x: %{x:.2f}<br>"
-                "y: %{y:.2f}<br>"
-                "<b>%{customdata}</b>"
-                "<extra></extra>"
-            ),
-            name="Posições"
+               showscale=True,
+               hoverinfo="skip",
+               name="Densidade Posicional"
         )
     )
+
 
     # --------------------------------------------------
     # Posição média
