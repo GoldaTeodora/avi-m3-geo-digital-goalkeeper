@@ -7,109 +7,198 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from scipy.stats import gaussian_kde
 
 
 # =====================================================
-# PI 1 — Distribuição Posicional do Guarda-Redes (STREAMLIT SAFE)
+# PI 1 — Distribuição Posicional do Guarda-Redes (INTERATIVO)
+# Persona: Treinador de Guarda-Redes
 # =====================================================
-def plot_pi1_positional_distribution(positions, mean_position):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from scipy.stats import gaussian_kde
-
-    x = positions["#x0"].dropna().values
-    y = positions["#y0"].dropna().values
-
-    fig, ax = plt.subplots(figsize=(7, 7))
-    fig.patch.set_facecolor("#0E0E0E")
-    ax.set_facecolor("#0E0E0E")
+def plot_pi1_positional_distribution_plotly(
+    positions: pd.DataFrame,
+    mean_position: tuple,
+    tactical_reading: str
+):
+    # --------------------------------------------------
+    # Robustez mínima
+    # --------------------------------------------------
+    if positions is None or positions.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title="PI 1 — Distribuição Posicional do Guarda-Redes",
+            plot_bgcolor="#0E0E0E",
+            paper_bgcolor="#0E0E0E"
+        )
+        return fig
 
     # --------------------------------------------------
-    # 🔹 SUBAMOSTRAGEM (CRÍTICO)
+    # Subamostragem (CRÍTICO para performance)
     # --------------------------------------------------
     MAX_POINTS = 3000
-    if len(x) > MAX_POINTS:
-        idx = np.random.choice(len(x), MAX_POINTS, replace=False)
-        x = x[idx]
-        y = y[idx]
+    if len(positions) > MAX_POINTS:
+        positions = positions.sample(MAX_POINTS, random_state=42)
+
+    fig = go.Figure()
 
     # --------------------------------------------------
-    # 🔹 KDE ROBUSTO
+    # Campo normalizado (0–1)
     # --------------------------------------------------
-    try:
-        values = np.vstack([x, y])
-        kde = gaussian_kde(values, bw_method=0.25)
+    fig.update_xaxes(range=[0, 1], visible=False, fixedrange=True)
+    fig.update_yaxes(
+        range=[0, 1],
+        visible=False,
+        scaleanchor="x",
+        fixedrange=True
+    )
 
-        xi, yi = np.mgrid[
-            x.min():x.max():120j,
-            y.min():y.max():120j
-        ]
-        zi = kde(np.vstack([xi.flatten(), yi.flatten()]))
-        zi = zi.reshape(xi.shape)
+    # --------------------------------------------------
+    # Layout base
+    # --------------------------------------------------
+    fig.update_layout(
+        title="PI 1 — Distribuição Posicional do Guarda-Redes",
+        plot_bgcolor="#0E0E0E",
+        paper_bgcolor="#0E0E0E",
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white")
+        )
+    )
 
-        ax.imshow(
-            zi.T,
-            origin="lower",
-            cmap="turbo",
-            extent=[x.min(), x.max(), y.min(), y.max()],
-            alpha=0.95
+    # --------------------------------------------------
+    # Baliza
+    # --------------------------------------------------
+    fig.add_shape(
+        type="line",
+        x0=0.44, x1=0.56,
+        y0=0.0, y1=0.0,
+        line=dict(color="white", width=3)
+    )
+
+    # --------------------------------------------------
+    # Área defensiva
+    # --------------------------------------------------
+    fig.add_shape(
+        type="rect",
+        x0=0.30, x1=0.70,
+        y0=0.00, y1=0.18,
+        line=dict(color="white", dash="dash"),
+        fillcolor="rgba(0,0,0,0)"
+    )
+
+    # --------------------------------------------------
+    # Zonas funcionais
+    # --------------------------------------------------
+    zones = [
+        (0.00, 0.18, "Zona Baixa", "rgba(31,119,180,0.12)"),
+        (0.18, 0.35, "Zona Média", "rgba(44,160,44,0.12)"),
+        (0.35, 1.00, "Zona Alta", "rgba(214,39,40,0.10)")
+    ]
+
+    for y0, y1, label, color in zones:
+        fig.add_shape(
+            type="rect",
+            x0=0, x1=1,
+            y0=y0, y1=y1,
+            fillcolor=color,
+            line=dict(width=0),
+            layer="below"
         )
 
-    except Exception:
-        # Fallback seguro
-        ax.scatter(x, y, s=4, alpha=0.35, color="#4C78A8")
+        fig.add_annotation(
+            x=0.01,
+            y=(y0 + y1) / 2,
+            text=label,
+            showarrow=False,
+            font=dict(color="white", size=11),
+            xanchor="left"
+        )
 
     # --------------------------------------------------
-    # 🔹 POSIÇÃO MÉDIA
+    # Classificação de zona (hover)
     # --------------------------------------------------
-    ax.scatter(
-        mean_position[0],
-        mean_position[1],
-        s=120,
-        color="#FFD700",
-        edgecolor="black",
-        zorder=10,
-        label="Posição Média"
+    def classify_zone(y):
+        if y <= 0.18:
+            return "Zona Baixa"
+        elif y <= 0.35:
+            return "Zona Média"
+        else:
+            return "Zona Alta"
+
+    zones_hover = positions["#y0"].apply(classify_zone)
+
+    # --------------------------------------------------
+    # Scatter posicional
+    # --------------------------------------------------
+    fig.add_trace(
+        go.Scatter(
+            x=positions["#x0"],
+            y=positions["#y0"],
+            mode="markers",
+            marker=dict(
+                size=4,
+                color="rgba(255,255,255,0.25)"
+            ),
+            customdata=zones_hover,
+            hovertemplate=(
+                "x: %{x:.2f}<br>"
+                "y: %{y:.2f}<br>"
+                "<b>%{customdata}</b>"
+                "<extra></extra>"
+            ),
+            name="Posições"
+        )
     )
 
-    ax.set_title(
-        "PI 1 — Distribuição Posicional do Guarda-Redes",
-        color="white",
-        fontsize=14,
-        pad=12
+    # --------------------------------------------------
+    # Posição média
+    # --------------------------------------------------
+    fig.add_trace(
+        go.Scatter(
+            x=[mean_position[0]],
+            y=[mean_position[1]],
+            mode="markers",
+            marker=dict(
+                size=14,
+                color="#FFD700",
+                line=dict(color="black", width=2)
+            ),
+            name="Posição Média"
+        )
     )
 
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_aspect("equal")
-
-    ax.legend(
-        loc="upper right",
-        facecolor="#1C1F26",
-        edgecolor="none",
-        labelcolor="white"
+    fig.add_shape(
+        type="line",
+        x0=0, x1=1,
+        y0=mean_position[1],
+        y1=mean_position[1],
+        line=dict(color="#FFD700", width=2, dash="dot")
     )
 
-    plt.tight_layout()
+    # --------------------------------------------------
+    # Perfil tático
+    # --------------------------------------------------
+    fig.add_annotation(
+        x=0.5,
+        y=0.97,
+        text=f"Perfil: {tactical_reading}",
+        showarrow=False,
+        font=dict(size=13, color="#FFD700"),
+        xanchor="center"
+    )
+
     return fig
-
-
-
 
 
 # =====================================================
 # PI 2 — Distância Percorrida
 # =====================================================
 def plot_pi2_distance_travelled(distances):
-    """PI 2 — Distância Percorrida (acumulada)"""
-
     cumulative_distance = np.cumsum(distances)
 
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(cumulative_distance, color="blue")
+    ax.plot(cumulative_distance)
 
-    ax.set_title("PI 2 – Distância Percorrida pelo Guarda-Redes")
+    ax.set_title("PI 2 — Distância Percorrida pelo Guarda-Redes")
     ax.set_xlabel("Instante (frames)")
     ax.set_ylabel("Distância acumulada")
 
@@ -117,11 +206,9 @@ def plot_pi2_distance_travelled(distances):
 
 
 # =====================================================
-# PI 3 — Frequência de Ameaças por Zona (ESTÁTICO – LEGADO)
+# PI 3 — Frequência de Ameaças por Zona (ESTÁTICO)
 # =====================================================
 def plot_pi3_threat_frequency(heatmap: np.ndarray):
-    """PI 3 — Frequência de Ameaças por Zona (matplotlib)"""
-
     fig, ax = plt.subplots(figsize=(6, 6))
 
     im = ax.imshow(
@@ -130,90 +217,32 @@ def plot_pi3_threat_frequency(heatmap: np.ndarray):
         cmap="hot"
     )
 
-    ax.set_title("PI 3 – Frequência de Ameaças por Zona")
+    ax.set_title("PI 3 — Frequência de Ameaças por Zona")
     ax.set_xlabel("Eixo X (zonas)")
     ax.set_ylabel("Eixo Y (zonas)")
 
-    cbar = plt.colorbar(im, ax=ax)
-    cbar.set_label("Frequência de ameaças")
+    plt.colorbar(im, ax=ax)
 
     return fig
 
 
 # =====================================================
-# PI 3 — Origem Espacial das Ameaças Ofensivas (INTERATIVO)
+# PI 3 — Origem Espacial das Ameaças (INTERATIVO)
 # =====================================================
 def plot_pi3_threat_frequency_interactive(heatmap: np.ndarray):
-    """
-    PI 3 — Origem Espacial das Ameaças Ofensivas (Campo)
-    Persona: Treinador Principal
-    Contexto: Pós-Jogo
-    """
-
-    # Evitar log(0)
     heatmap_safe = np.where(heatmap <= 0, 1, heatmap)
     heatmap_log = np.log10(heatmap_safe)
 
-    df = pd.DataFrame(
-        heatmap_log,
-        columns=[f"X{i}" for i in range(heatmap.shape[1])],
-        index=[f"Y{i}" for i in range(heatmap.shape[0])]
-    )
+    df = pd.DataFrame(heatmap_log)
 
     fig = px.imshow(
         df,
         color_continuous_scale="viridis",
-        aspect="equal",
-        labels=dict(color="log10(Frequência de ameaças)")
-    )
-
-    # ---------- Escala de cores (consolidada) ----------
-    fig.update_coloraxes(
-        cmin=heatmap_log.min(),
-        cmax=np.percentile(heatmap_log, 95),
-        colorbar=dict(
-            title="Frequência de ameaças",
-            tickmode="array",
-            tickvals=[1.3, 1.6, 2.0],
-            ticktext=[
-                "Baixa (~20 ameaças)",
-                "Média (~40–50 ameaças)",
-                "Alta (≥100 ameaças)"
-            ]
-        )
-    )
-
-    # ---------- Baliza ----------
-    fig.add_shape(
-        type="rect",
-        x0=-0.5, x1=0.5,
-        y0=3.5, y1=5.5,
-        line=dict(color="white", width=2),
-        fillcolor="rgba(0,0,0,0)"
-    )
-
-    fig.add_annotation(
-        x=0,
-        y=5.7,
-        text="Baliza",
-        showarrow=False,
-        font=dict(color="white")
-    )
-
-    # ---------- Hover ----------
-    fig.update_traces(
-        hovertemplate=(
-            "Zona X: %{x}<br>"
-            "Zona Y: %{y}<br>"
-            "log10(Ameaças): %{z:.2f}"
-            "<extra></extra>"
-        )
+        aspect="equal"
     )
 
     fig.update_layout(
-        title="PI 3 — Origem Espacial das Ameaças Ofensivas (Campo)",
-        xaxis_title="Eixo X (zonas do campo)",
-        yaxis_title="Eixo Y (zonas do campo)",
+        title="PI 3 — Origem Espacial das Ameaças Ofensivas",
         template="plotly_dark"
     )
 
@@ -223,94 +252,39 @@ def plot_pi3_threat_frequency_interactive(heatmap: np.ndarray):
 # =====================================================
 # PI 4 — Intensidade de Reação
 # =====================================================
-def plot_pi4_reaction_intensity(
-    speeds,
-    mean_speed,
-    max_speed
-):
-    """PI 4 — Intensidade de Reação do Guarda-Redes"""
-
+def plot_pi4_reaction_intensity(speeds, mean_speed, max_speed):
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(speeds, alpha=0.6, label="Velocidade instantânea")
+    ax.plot(speeds, alpha=0.6)
 
-    ax.axhline(
-        mean_speed,
-        color="green",
-        linestyle="--",
-        linewidth=2,
-        label=f"Velocidade média ({mean_speed:.2f})"
-    )
+    ax.axhline(mean_speed, linestyle="--", linewidth=2)
+    ax.axhline(max_speed, linestyle=":", linewidth=2)
 
-    ax.axhline(
-        max_speed,
-        color="red",
-        linestyle=":",
-        linewidth=2,
-        label=f"Velocidade máxima ({max_speed:.2f})"
-    )
-
-    ax.set_title("PI 4 – Intensidade de Reação do Guarda-Redes")
+    ax.set_title("PI 4 — Intensidade de Reação do Guarda-Redes")
     ax.set_xlabel("Instante (frames)")
     ax.set_ylabel("Velocidade")
-    ax.legend()
 
     return fig
 
 
 # =====================================================
-# PI 5 — CANAL DE PROGRESSÃO DAS AMEAÇAS (FINAL)
+# PI 5 — Canal de Progressão das Ameaças
 # =====================================================
 def plot_pi5_threat_progression_channels(pi5_data: dict):
-    """
-    PI 5 — Canal de Progressão das Ameaças Ofensivas
-    Persona: Treinador Principal
-    Contexto: Pós-Jogo
-    """
-
     channels = ["Esquerdo", "Central", "Direito"]
     counts = [pi5_data["counts"][c] for c in channels]
-    percentages = [pi5_data["percentages"][c] for c in channels]
-
-    colors = ["#4C78A8", "#54A24B", "#4C78A8"]
 
     fig = go.Figure(
         data=[
             go.Bar(
                 x=channels,
-                y=counts,
-                text=[f"{p:.1f}%" for p in percentages],
-                textposition="auto",
-                marker_color=colors
+                y=counts
             )
         ]
     )
 
     fig.update_layout(
         title="PI 5 — Canal de Progressão das Ameaças Ofensivas",
-        xaxis_title="Canal do Campo",
-        yaxis_title="Número de Ameaças",
-        showlegend=False,
-        template="plotly_dark",
-        margin=dict(t=60, b=40, l=40, r=40)
+        template="plotly_dark"
     )
 
     return fig
-
-
-# =====================================================
-# 🔁 ALIASES (COMPATIBILIDADE)
-# =====================================================
-def plot_pi3_threat_frequency_by_zone(heatmap):
-    return plot_pi3_threat_frequency(heatmap)
-
-
-def plot_pi4_reaction_intensity_by_time(
-    speeds,
-    mean_speed,
-    max_speed
-):
-    return plot_pi4_reaction_intensity(
-        speeds,
-        mean_speed,
-        max_speed
-    )

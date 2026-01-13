@@ -331,24 +331,40 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
         key="pi_gr"
     )
 
-    # --------------------------------------------------
+    # ==================================================
     # PI 1 — Distribuição Posicional
-    # --------------------------------------------------
+    # ==================================================
     if selected_pi == "PI 1 — Distribuição Posicional":
 
-        pi1 = kpis["pi1"]
+       pi1 = kpis.get("pi1")
+  
+       if pi1 is None or pi1.get("positions") is None or pi1["positions"].empty:
+           st.warning("Dados insuficientes para análise posicional com os filtros atuais.")
+           st.stop()
 
-        if pi1["positions"].empty:
-            st.warning("Dados insuficientes para análise posicional.")
-            st.stop()
+       fig = plot_pi1_positional_distribution_plotly(
+           pi1["positions"],
+           pi1["mean_position"],
+           pi1["tactical_reading"]
+        )
 
-        fig = plot_pi1_positional_distribution_plotly(
-              positions,
-              kpis["pi1"]["mean_position"],
-              kpis["pi1"]["tactical_reading"]
-)
+       st.plotly_chart(fig, use_container_width=True)
 
-        st.pyplot(fig)
+       zone_info = pi1["zone_distribution"]
+       reading = pi1["tactical_reading"]
+
+       st.markdown("### 🧠 Leitura Tática Automática")
+
+       st.write(
+          f"""
+          **Zona Baixa:** {zone_info['baixo']:.1f}%  
+          **Zona Média:** {zone_info['medio']:.1f}%  
+          **Zona Alta:** {zone_info['alto']:.1f}%  
+          """
+        )
+
+       st.info(f"📌 **Interpretação:** {reading}")
+
 
     # --------------------------------------------------
     # PI 2 — Distância Percorrida

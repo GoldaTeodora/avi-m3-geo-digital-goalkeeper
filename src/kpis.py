@@ -1,33 +1,102 @@
+# =====================================================
+# KPIs — DIGITAL GOALKEEPER
+# =====================================================
+
 import pandas as pd
-
-
-def pi1_positional_distribution(X: pd.DataFrame):
-    """
-    PI 1 — Distribuição Posicional e Posição Média do Guarda-Redes
-    Assume o guarda-redes como o jogador 0 (#x0, #y0).
-    """
-
-    gr_positions = X[["#x0", "#y0"]].copy()
-
-    mean_x = gr_positions["#x0"].mean()
-    mean_y = gr_positions["#y0"].mean()
-
-    return {
-        "positions": gr_positions,
-        "mean_position": (mean_x, mean_y)
-    }
-
-
 import numpy as np
 
 
-def pi2_distance_travelled(X: pd.DataFrame):
+# =====================================================
+# PI 1 — Distribuição Posicional do Guarda-Redes
+# Persona: Treinador de Guarda-Redes
+# =====================================================
+def pi1_positional_distribution(X: pd.DataFrame):
+    """
+    PI 1 — Distribuição Posicional do Guarda-Redes
 
+    Requisitos:
+    - Colunas: #x0, #y0
+    - Coordenadas normalizadas [0,1]
+
+    Output:
+    - positions
+    - mean_position
+    - zone_distribution
+    - tactical_reading
+    """
+
+    # -----------------------------
+    # Validação mínima
+    # -----------------------------
+    required_cols = {"#x0", "#y0"}
+    if not required_cols.issubset(X.columns):
+        raise ValueError("PI1 requer colunas '#x0' e '#y0'.")
+
+    positions = X[["#x0", "#y0"]].copy()
+    positions = positions.replace([np.inf, -np.inf], np.nan).dropna()
+
+    if len(positions) < 20:
+        return {
+            "positions": positions,
+            "mean_position": (np.nan, np.nan),
+            "zone_distribution": {"baixo": 0.0, "medio": 0.0, "alto": 0.0},
+            "tactical_reading": "Dados insuficientes para leitura tática"
+        }
+
+    # -----------------------------
+    # Posição média
+    # -----------------------------
+    mean_x = positions["#x0"].mean()
+    mean_y = positions["#y0"].mean()
+
+    # -----------------------------
+    # Zonas funcionais (eixo Y)
+    # -----------------------------
+    ZONE_LOW_Y = 0.18
+    ZONE_MID_Y = 0.35
+
+    y = positions["#y0"].values
+    total = len(y)
+
+    zone_low = np.sum(y <= ZONE_LOW_Y) / total * 100
+    zone_mid = np.sum((y > ZONE_LOW_Y) & (y <= ZONE_MID_Y)) / total * 100
+    zone_high = np.sum(y > ZONE_MID_Y) / total * 100
+
+    zone_distribution = {
+        "baixo": zone_low,
+        "medio": zone_mid,
+        "alto": zone_high
+    }
+
+    # -----------------------------
+    # Leitura tática automática
+    # -----------------------------
+    if mean_y < 0.25:
+        tactical_reading = "Guarda-redes predominantemente baixo"
+    elif mean_y < 0.45:
+        tactical_reading = "Guarda-redes em zona de cobertura"
+    else:
+        tactical_reading = "Guarda-redes frequentemente adiantado (sweeper)"
+
+    return {
+        "positions": positions,
+        "mean_position": (mean_x, mean_y),
+        "zone_distribution": zone_distribution,
+        "tactical_reading": tactical_reading
+    }
+
+
+# =====================================================
+# PI 2 — Distância Percorrida
+# Persona: Treinador de Guarda-Redes
+# =====================================================
+def pi2_distance_travelled(X: pd.DataFrame):
     """
     PI 2 — Distância Percorrida pelo Guarda-Redes
-    Calculada como soma das distâncias euclidianas entre posições consecutivas.
-    Assume sequência temporal implícita na ordem das linhas.
     """
+
+    if "#x0" not in X.columns or "#y0" not in X.columns:
+        raise ValueError("PI2 requer colunas '#x0' e '#y0'.")
 
     x = X["#x0"].values
     y = X["#y0"].values
@@ -37,17 +106,16 @@ def pi2_distance_travelled(X: pd.DataFrame):
 
     distances = np.sqrt(dx**2 + dy**2)
 
-    total_distance = distances.sum()
-
     return {
-        "total_distance": total_distance,
+        "total_distance": float(np.nansum(distances)),
         "instant_distances": distances
     }
 
 
-import numpy as np
-
-
+# =====================================================
+# PI 3 — Frequência de Ameaças por Zona
+# Persona: Treinador Principal
+# =====================================================
 def pi3_threat_frequency_by_zone(
     X: pd.DataFrame,
     bins_x: int = 10,
@@ -55,17 +123,16 @@ def pi3_threat_frequency_by_zone(
 ):
     """
     PI 3 — Frequência de Ameaças por Zona
-    Calcula a densidade de posições da bola (#ball_x, #ball_y)
-    num grid espacial.
     """
 
-    ball_x = X["#ball_x"].values
-    ball_y = X["#ball_y"].values
+    if "#ball_x" not in X.columns or "#ball_y" not in X.columns:
+        raise ValueError("PI3 requer colunas '#ball_x' e '#ball_y'.")
 
     heatmap, x_edges, y_edges = np.histogram2d(
-        ball_x,
-        ball_y,
-        bins=[bins_x, bins_y]
+        X["#ball_x"].values,
+        X["#ball_y"].values,
+        bins=[bins_x, bins_y],
+        range=[[0, 1], [0, 1]]
     )
 
     return {
@@ -75,78 +142,42 @@ def pi3_threat_frequency_by_zone(
     }
 
 
+# =====================================================
+# PI 4 — Intensidade de Reação
+# Persona: Treinador de Guarda-Redes
+# =====================================================
 def pi4_reaction_intensity(X: pd.DataFrame):
     """
     PI 4 — Intensidade de Reação do Guarda-Redes
-    Calcula a intensidade da reação com base na magnitude da velocidade.
     """
+
+    if "#vx0" not in X.columns or "#vy0" not in X.columns:
+        raise ValueError("PI4 requer colunas '#vx0' e '#vy0'.")
 
     vx = X["#vx0"].values
     vy = X["#vy0"].values
 
     speed_series = np.sqrt(vx**2 + vy**2)
 
-    mean_speed = speed_series.mean()
-    max_speed = speed_series.max()
-
     return {
         "speed_series": speed_series,
-        "mean_speed": mean_speed,
-        "max_speed": max_speed
+        "mean_speed": float(np.nanmean(speed_series)),
+        "max_speed": float(np.nanmax(speed_series))
     }
 
 
-
-
-def pi5_threat_origin_zones(
-    X: pd.DataFrame,
-    bins_x: int = 10,
-    bins_y: int = 10
-):
-    """
-    PI 5 — Zona de Origem das Ameaças
-    Analisa a distribuição espacial das posições iniciais da bola
-    como proxy da origem das ações ofensivas.
-    """
-
-    ball_x = X["#ball_x"].values
-    ball_y = X["#ball_y"].values
-
-    heatmap, x_edges, y_edges = np.histogram2d(
-        ball_x,
-        ball_y,
-        bins=[bins_x, bins_y]
-    )
-
-    return {
-        "heatmap": heatmap,
-        "x_edges": x_edges,
-        "y_edges": y_edges
-    }
-
-
-import pandas as pd
-
-
-# ==================================================
-# PI 5 — CANAL DE PROGRESSÃO DAS AMEAÇAS OFENSIVAS
-# ==================================================
+# =====================================================
+# PI 5 — Canal de Progressão das Ameaças
+# Persona: Treinador Principal
+# =====================================================
 def pi5_threat_progression_channels(X: pd.DataFrame):
     """
     PI 5 — Canal de Progressão das Ameaças Ofensivas
-
-    Objetivo:
-    Identificar por que corredor do campo (esquerdo, central, direito)
-    o adversário construiu mais ameaças ofensivas.
-
-    Persona: Treinador Principal
-    Contexto: Pós-Jogo
     """
 
-    if "#x0" not in X.columns:
-        raise ValueError("Coluna '#x0' não encontrada para cálculo do PI 5.")
+    if "#ball_x" not in X.columns:
+        raise ValueError("PI5 requer coluna '#ball_x'.")
 
-    # Classificação dos canais com base na coordenada X normalizada
     def classify_channel(x):
         if x < 0.33:
             return "Esquerdo"
@@ -155,17 +186,14 @@ def pi5_threat_progression_channels(X: pd.DataFrame):
         else:
             return "Direito"
 
-    channels = X["#x0"].apply(classify_channel)
+    channels = X["#ball_x"].apply(classify_channel)
 
-    # Contagem absoluta
     counts = channels.value_counts().reindex(
         ["Esquerdo", "Central", "Direito"],
         fill_value=0
     )
 
     total = counts.sum()
-
-    # Percentagens
     percentages = (counts / total * 100) if total > 0 else counts
 
     return {
