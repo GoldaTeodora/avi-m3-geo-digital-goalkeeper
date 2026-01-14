@@ -71,10 +71,56 @@ def plot_pi1_positional_distribution_plotly(
     fig.update_layout(
         plot_bgcolor="#0E0E0E",
         paper_bgcolor="#0E0E0E",
-        margin=dict(l=180, r=40, t=60, b=40),
+        margin=dict(l=260, r=40, t=60, b=40),
         title="PI 1 — Distribuição Posicional do Guarda-Redes",
         legend=dict(font=dict(color="white"))
     )
+
+    # --------------------------------------------------
+    # DESENHO DA BALIZA (referência espacial)
+    # --------------------------------------------------
+
+    GOAL_Y = 0.02          # linha de golo
+    POST_LEFT = 0.42
+    POST_RIGHT = 0.58
+    CROSSBAR_Y = 0.05
+
+    # Linha de golo
+    fig.add_shape(
+        type="line",
+        x0=POST_LEFT, x1=POST_RIGHT,
+        y0=GOAL_Y, y1=GOAL_Y,
+        line=dict(color="white", width=4),
+        layer="above"
+    )
+
+    # Poste esquerdo
+    fig.add_shape(
+        type="line",
+        x0=POST_LEFT, x1=POST_LEFT,
+        y0=GOAL_Y, y1=CROSSBAR_Y,
+        line=dict(color="white", width=3),
+        layer="above"
+    )
+
+    # Poste direito
+    fig.add_shape(
+        type="line",
+        x0=POST_RIGHT, x1=POST_RIGHT,
+        y0=GOAL_Y, y1=CROSSBAR_Y,
+        line=dict(color="white", width=3),
+        layer="above"
+    )
+
+    # Linha da barra (opcional, mas ajuda muito)
+    fig.add_shape(
+        type="line",
+        x0=POST_LEFT, x1=POST_RIGHT,
+        y0=CROSSBAR_Y, y1=CROSSBAR_Y,
+        line=dict(color="white", width=2),
+        layer="above"
+    )
+
 
     # --------------------------------------------------
     # Zonas funcionais
@@ -223,22 +269,39 @@ def plot_pi1_positional_distribution_plotly(
             else positions
         )
 
+        def zona_funcional(y):
+           if y <= Z_LOW:
+             return "Zona Baixa — proteção da baliza"
+           elif y <= Z_MID:
+             return "Zona Média — zona de cobertura"
+           else:
+             return "Zona Alta — comportamento sweeper"
+
+
+        
+        
         fig.add_trace(
-        go.Scatter(
-        x=positions_pts["#x0"],
-        y=positions_pts["#y0"],
-        mode="markers",
-        marker=dict(
-            size=4,
-            color="rgba(255,255,255,0.25)"  # menos opaco → menos ruído
-        ),
-        hovertemplate=(
-            "Frame posicional<br>"
-            "x: %{x:.2f}<br>"
-            "y: %{y:.2f}"
-            "<extra></extra>"
-        ),
-        name="Posições"
+            go.Scatter(
+               x=positions_pts["#x0"],
+               y=positions_pts["#y0"],
+               customdata=[
+                    zona_funcional(y) for y in positions_pts["#y0"]
+                ],
+                mode="markers",
+                marker=dict(
+                    size=4,
+                    color="rgba(255,255,255,0.25)"  # menos opaco → menos ruído
+                ),
+                hovertemplate=(
+                    "<b>Posição do guarda-redes</b><br><br>"
+                    "Altura no campo (y): %{y:.2f}<br><br>"
+                    "<b>Zona funcional:</b><br>"
+                    "%{customdata}<br><br>"
+                    "<b>Leitura tática:</b><br>"
+                    f"{tactical_reading}"
+                    "<extra></extra>"
+                ),
+                name="Posições"
     )
 )
 
