@@ -8,6 +8,16 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from scipy.stats import gaussian_kde
+from functools import lru_cache
+
+@lru_cache(maxsize=8)
+def compute_kde_cached(x_tuple, y_tuple):
+    x = np.array(x_tuple)
+    y = np.array(y_tuple)
+    kde = gaussian_kde(np.vstack([x, y]), bw_method=0.25)
+    xi, yi = np.mgrid[0:1:120j, 0:1:120j]
+    zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
+    return xi, yi, zi
 
 
 # =====================================================
@@ -16,20 +26,40 @@ from scipy.stats import gaussian_kde
 # =====================================================
 def plot_pi1_positional_distribution_plotly(
     positions: pd.DataFrame,
-    mean_position: tuple,
+    mean_position: tuple | None,
     tactical_reading: str,
-    view_mode: str = "Densidade",
-    zone_color_mode: str = "Neutro"
+    view_mode: str = "densidade",      # "densidade" | "pontinhos"
+    zone_color_mode: str = "Neutro"     # "Neutro" | "Semântico"
 ):
-    import numpy as np
-    from scipy.stats import gaussian_kde
-    import plotly.graph_objects as go
+    """
+    PI 1 — Distribuição Posicional do Guarda-Redes
+    Visualização robusta, rápida e defensável (TRL-6)
+    """
 
+    # --------------------------------------------------
+    # Robustez mínima
+    # --------------------------------------------------
+    if positions is None or positions.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title="PI 1 — Distribuição Posicional do Guarda-Redes",
+            plot_bgcolor="#0E0E0E",
+            paper_bgcolor="#0E0E0E",
+            annotations=[dict(
+                text="Dados insuficientes para visualização posicional",
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
+                showarrow=False,
+                font=dict(color="white", size=14)
+            )]
+        )
+        return fig
+
+    # --------------------------------------------------
+    # FIGURA LIMPA (crítico para Streamlit)
+    # --------------------------------------------------
     fig = go.Figure()
 
-    # -----------------------------
-    # Campo normalizado
-    # -----------------------------
     fig.update_xaxes(range=[0, 1], visible=False, fixedrange=True)
     fig.update_yaxes(
         range=[0, 1],
@@ -41,20 +71,17 @@ def plot_pi1_positional_distribution_plotly(
     fig.update_layout(
         plot_bgcolor="#0E0E0E",
         paper_bgcolor="#0E0E0E",
-        margin=dict(l=120, r=40, t=60, b=40),
+        margin=dict(l=180, r=40, t=60, b=40),
         title="PI 1 — Distribuição Posicional do Guarda-Redes",
         legend=dict(font=dict(color="white"))
     )
 
-    # -----------------------------
-    # Limites das zonas (FIXOS)
-    # -----------------------------
+    # --------------------------------------------------
+    # Zonas funcionais
+    # --------------------------------------------------
     Z_LOW = 0.18
     Z_MID = 0.35
 
-    # -----------------------------
-    # Zonas (cores de fundo)
-    # -----------------------------
     if zone_color_mode == "Semântico":
         colors = {
             "low": "rgba(31,119,180,0.25)",
@@ -68,61 +95,72 @@ def plot_pi1_positional_distribution_plotly(
             "high": "rgba(100,100,100,0.12)"
         }
 
-    fig.add_shape(type="rect", x0=0, x1=1, y0=0, y1=Z_LOW,
-                  fillcolor=colors["low"], line=dict(width=0), layer="below")
+    fig.add_shape(
+    type="rect",
+    x0=0, y0=0, x1=1, y1=Z_LOW,
+    fillcolor=colors["low"],
+    line=dict(width=0),
+    layer="below"
+)
 
-    fig.add_shape(type="rect", x0=0, x1=1, y0=Z_LOW, y1=Z_MID,
-                  fillcolor=colors["mid"], line=dict(width=0), layer="below")
+    fig.add_shape(
+    type="rect",
+    x0=0, y0=Z_LOW, x1=1, y1=Z_MID,
+    fillcolor=colors["mid"],
+    line=dict(width=0),
+    layer="below"
+)
 
-    fig.add_shape(type="rect", x0=0, x1=1, y0=Z_MID, y1=1,
-                  fillcolor=colors["high"], line=dict(width=0), layer="below")
+    fig.add_shape(
+    type="rect",
+    x0=0, y0=Z_MID, x1=1, y1=1,
+    fillcolor=colors["high"],
+    line=dict(width=0),
+    layer="below"
+)
 
-    # -----------------------------
-    # Linhas de separação (sempre visíveis)
-    # -----------------------------
+
     for y in [Z_LOW, Z_MID]:
         fig.add_shape(
-            type="line",
-            x0=0, x1=1,
-            y0=y, y1=y,
+            type="line", x0=0, x1=1, y0=y, y1=y,
             line=dict(color="white", dash="dot", width=1)
         )
 
-    # -----------------------------
-    # Labels FORA do gráfico (lado esquerdo)
-    # -----------------------------
+    # Labels alinhadas
     labels = [
-        ("Zona Alta\nComportamento sweeper", (Z_MID + 1) / 2),
-        ("Zona Média\nZona de cobertura", (Z_LOW + Z_MID) / 2),
-        ("Zona Baixa\nLinha da baliza", Z_LOW / 2)
+        ("Zona Alta — Comportamento sweeper", Z_MID),
+        ("Zona Média — Zona de cobertura", Z_LOW),
+        ("Zona Baixa — Linha da baliza", 0.0),
     ]
 
     for text, y in labels:
         fig.add_annotation(
-            x=-0.05,
-            y=y,
-            xref="paper",
-            yref="y",
+            x=-0.06, y=y,
+            xref="paper", yref="y",
             text=text,
-            showarrow=True,
-            arrowhead=2,
-            arrowsize=1,
-            arrowwidth=1,
-            arrowcolor="white",
+            showarrow=False,
             font=dict(color="white", size=12),
-            align="right"
+            xanchor="right", yanchor="middle"
         )
 
-    # -----------------------------
+    # --------------------------------------------------
     # MODO: DENSIDADE
-    # -----------------------------
-    if view_mode == "Densidade" and len(positions) > 30:
-        x = positions["#x0"].values
-        y = positions["#y0"].values
+    # --------------------------------------------------
+    if view_mode == "densidade" and len(positions) > 30:
+        MAX_KDE_POINTS = 3000
+        positions_kde = (
+            positions.sample(n=MAX_KDE_POINTS, random_state=42)
+            if len(positions) > MAX_KDE_POINTS
+            else positions
+        )
 
-        kde = gaussian_kde(np.vstack([x, y]), bw_method=0.25)
-        xi, yi = np.mgrid[0:1:200j, 0:1:200j]
-        zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
+        x = positions_kde["#x0"].values
+        y = positions_kde["#y0"].values
+
+        xi, yi, zi = compute_kde_cached(
+            tuple(x.round(4)),
+            tuple(y.round(4))
+        )
 
         fig.add_trace(
             go.Contour(
@@ -138,52 +176,75 @@ def plot_pi1_positional_distribution_plotly(
             )
         )
 
-    # -----------------------------
-    # MODO: PONTINHOS
-    # -----------------------------
-    if view_mode == "Pontinhos":
+    # --------------------------------------------------
+    # MODO: PONTINHOS (SUBAMOSTRADO)
+    # --------------------------------------------------
+    if view_mode == "pontinhos":
+        MAX_POINTS = 3000
+        positions_pts = (
+            positions.sample(n=MAX_POINTS, random_state=42)
+            if len(positions) > MAX_POINTS
+            else positions
+        )
+
         fig.add_trace(
-            go.Scatter(
-                x=positions["#x0"],
-                y=positions["#y0"],
-                mode="markers",
-                marker=dict(size=4, color="rgba(255,255,255,0.35)"),
-                name="Posições"
-            )
-        )
+    go.Scatter(
+        x=positions_pts["#x0"],
+        y=positions_pts["#y0"],
+        mode="markers",
+        marker=dict(
+            size=4,
+            color="rgba(255,255,255,0.25)"  # menos opaco → menos ruído
+        ),
+        hovertemplate=(
+            "Frame posicional<br>"
+            "x: %{x:.2f}<br>"
+            "y: %{y:.2f}"
+            "<extra></extra>"
+        ),
+        name="Posições"
+    )
+)
 
-    # -----------------------------
-    # Guarda-redes (posição média)
-    # -----------------------------
-    fig.add_trace(
+
+    # --------------------------------------------------
+    # Posição média
+    # --------------------------------------------------
+    if mean_position is not None and not np.isnan(mean_position[1]):
+        fig.add_trace(
         go.Scatter(
-            x=[mean_position[0]],
-            y=[mean_position[1]],
-            mode="markers",
-            marker=dict(
-                size=22,
-                color="white",
-                line=dict(color="black", width=2)
-            ),
-            name="Guarda-Redes"
+        x=[mean_position[0]],
+        y=[mean_position[1]],
+        mode="markers",
+        marker=dict(
+            size=22,
+            color="white",
+            line=dict(color="black", width=2)
+        ),
+        hovertemplate=(
+            "<b>Posição média do guarda-redes</b><br>"
+            "x: %{x:.2f}<br>"
+            "y: %{y:.2f}"
+            "<extra></extra>"
+        ),
+        name="Guarda-Redes"
+    )
+)
+
+        
+
+        fig.add_shape(
+            type="line", x0=0, x1=1,
+            y0=mean_position[1], y1=mean_position[1],
+            line=dict(color="#FFD700", width=2, dash="dot")
         )
-    )
 
-    # Linha da profundidade média
-    fig.add_shape(
-        type="line",
-        x0=0, x1=1,
-        y0=mean_position[1],
-        y1=mean_position[1],
-        line=dict(color="#FFD700", width=2, dash="dot")
-    )
-
+    # --------------------------------------------------
     # Perfil tático
+    # --------------------------------------------------
     fig.add_annotation(
-        x=0.5,
-        y=1.05,
-        xref="paper",
-        yref="paper",
+        x=0.5, y=1.05,
+        xref="paper", yref="paper",
         text=f"Perfil: {tactical_reading}",
         showarrow=False,
         font=dict(size=13, color="#FFD700")
@@ -193,21 +254,61 @@ def plot_pi1_positional_distribution_plotly(
 
 
 
-
 # =====================================================
 # PI 2 — Distância Percorrida
 # =====================================================
-def plot_pi2_distance_travelled(distances):
+def plot_pi2_distance_travelled(distances, selected_frame=None):
+    if distances is None or len(distances) == 0:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.text(0.5, 0.5, "Sem dados de deslocamento",
+                ha="center", va="center")
+        ax.axis("off")
+        return fig
+
     cumulative_distance = np.cumsum(distances)
 
+    threshold = np.percentile(cumulative_distance, 65)
+
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(cumulative_distance)
+    ax.plot(cumulative_distance, label="Distância acumulada")
+
+    ax.axhline(
+        threshold,
+        color="orange",
+        linestyle="--",
+        linewidth=2,
+        label="Zona de carga elevada (65º percentil)"
+    )
+
+    # -----------------------------
+    # NOVO: instante selecionado
+    # -----------------------------
+    if selected_frame is not None and selected_frame < len(cumulative_distance):
+        ax.axvline(
+            selected_frame,
+            color="gold",
+            linestyle=":",
+            linewidth=2,
+            label="Instante selecionado"
+        )
+
+        ax.scatter(
+            selected_frame,
+            cumulative_distance[selected_frame],
+            color="gold",
+            s=60,
+            zorder=5
+        )
 
     ax.set_title("PI 2 — Distância Percorrida pelo Guarda-Redes")
     ax.set_xlabel("Instante (frames)")
     ax.set_ylabel("Distância acumulada")
+    ax.legend()
 
     return fig
+
+
+
 
 
 # =====================================================
@@ -269,26 +370,21 @@ def plot_pi4_reaction_intensity(
     mean_speed: float,
     max_speed: float
 ):
-
     fig, ax = plt.subplots(figsize=(8, 4))
+
+    if speeds is None or len(speeds) == 0:
+        ax.text(0.5, 0.5, "Sem dados de reação",
+                ha="center", va="center")
+        ax.axis("off")
+        return fig
 
     ax.plot(speeds, alpha=0.6, label="Velocidade instantânea")
 
-    ax.axhline(
-        mean_speed,
-        color="green",
-        linestyle="--",
-        linewidth=2,
-        label=f"Média ({mean_speed:.2f})"
-    )
+    ax.axhline(mean_speed, color="green", linestyle="--",
+               linewidth=2, label=f"Média ({mean_speed:.2f})")
 
-    ax.axhline(
-        max_speed,
-        color="red",
-        linestyle=":",
-        linewidth=2,
-        label=f"Máxima ({max_speed:.2f})"
-    )
+    ax.axhline(max_speed, color="red", linestyle=":",
+               linewidth=2, label=f"Máxima ({max_speed:.2f})")
 
     ax.set_title("PI 4 — Intensidade de Reação do Guarda-Redes")
     ax.set_xlabel("Frames")
@@ -296,6 +392,7 @@ def plot_pi4_reaction_intensity(
     ax.legend()
 
     return fig
+
 
 
 # =====================================================
@@ -335,3 +432,178 @@ def plot_pi5_threat_progression_channels(pi5_data: dict):
     )
 
     return fig
+
+
+def plot_pi2_distance_interactive_plotly(
+    distances,
+    selected_frame=None
+):
+    if distances is None or len(distances) == 0:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Sem dados de deslocamento",
+            x=0.5, y=0.5,
+            xref="paper", yref="paper",
+            showarrow=False
+        )
+        fig.update_layout(template="plotly_dark")
+        return fig
+
+    cumulative_distance = np.cumsum(distances)
+    threshold = np.percentile(cumulative_distance, 65)
+
+    fig = go.Figure()
+
+    # Linha principal (hover ativo)
+    fig.add_trace(
+        go.Scatter(
+            y=cumulative_distance,
+            mode="lines",
+            name="Distância acumulada",
+            line=dict(color="#4C78A8", width=3),
+            hovertemplate=(
+                "Frame: %{x}<br>"
+                "Distância acumulada: %{y:.1f} m<extra></extra>"
+            )
+        )
+    )
+
+    # Linha de carga elevada
+    fig.add_hline(
+        y=threshold,
+        line_dash="dash",
+        line_color="orange",
+        annotation_text="Zona de carga elevada (65º percentil)",
+        annotation_position="top left"
+    )
+
+    # Instante selecionado
+    if selected_frame is not None and selected_frame < len(cumulative_distance):
+        fig.add_vline(
+            x=selected_frame,
+            line_dash="dot",
+            line_color="gold"
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=[selected_frame],
+                y=[cumulative_distance[selected_frame]],
+                mode="markers",
+                marker=dict(size=10, color="gold"),
+                name="Instante selecionado",
+                hovertemplate=(
+                    f"Frame: {selected_frame}<br>"
+                    f"Distância acumulada: "
+                    f"{cumulative_distance[selected_frame]:.1f} m"
+                    "<extra></extra>"
+                )
+            )
+        )
+
+    fig.update_layout(
+        title="PI 2 — Distância Percorrida pelo Guarda-Redes",
+        xaxis_title="Instante (frames)",
+        yaxis_title="Distância acumulada (m)",
+        template="plotly_dark",
+        height=450,
+        hovermode="x unified"
+    )
+
+    return fig
+
+# =====================================================
+# PI 2 — Distância Percorrida (BARRAS INTERATIVAS)
+# Versão simplificada para GK-Coach
+# =====================================================
+def plot_pi2_distance_travelled_bars(
+    distances: np.ndarray,
+    selected_frame: int,
+    step: int = 1000
+):
+    """
+    Visualização alternativa do PI 2
+    - Barras acumuladas
+    - Cores semânticas (carga normal vs elevada)
+    - Interativa e leve
+    """
+
+    # -----------------------------
+    # Preparação dos dados
+    # -----------------------------
+    cumulative_distance = np.cumsum(distances)
+
+    frames = np.arange(len(cumulative_distance))
+
+    # Subamostragem (performance)
+    frames_sampled = frames[::step]
+    distance_sampled = cumulative_distance[::step]
+
+    # Limiar de carga (65º percentil)
+    threshold = np.percentile(cumulative_distance, 65)
+
+    # Cores semânticas
+    colors = [
+        "#2ECC71" if d < threshold else "#E74C3C"
+        for d in distance_sampled
+    ]
+
+    # -----------------------------
+    # Gráfico
+    # -----------------------------
+    fig = go.Figure()
+
+    # Barras acumuladas
+    fig.add_trace(
+        go.Bar(
+            x=frames_sampled,
+            y=distance_sampled,
+            marker_color=colors,
+            hovertemplate=(
+                "Frame: %{x}<br>"
+                "Distância acumulada: %{y:.1f} m<br>"
+                "<extra></extra>"
+            ),
+            name="Distância acumulada"
+        )
+    )
+
+    # Linha de limiar
+    fig.add_hline(
+        y=threshold,
+        line_dash="dash",
+        line_color="#F39C12",
+        annotation_text="Zona de carga elevada (65º percentil)",
+        annotation_position="top left"
+    )
+
+    # Destaque do instante selecionado
+    selected_distance = cumulative_distance[selected_frame]
+
+    fig.add_trace(
+        go.Scatter(
+            x=[selected_frame],
+            y=[selected_distance],
+            mode="markers",
+            marker=dict(size=12, color="#F1C40F"),
+            name="Instante selecionado",
+            hovertemplate=(
+                f"Frame: {selected_frame}<br>"
+                f"Distância acumulada: {selected_distance:.1f} m"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    # Layout
+    fig.update_layout(
+        title="PI 2 — Distância Percorrida (Modo Simplificado)",
+        xaxis_title="Instante do jogo (frames)",
+        yaxis_title="Distância acumulada (m)",
+        template="plotly_dark",
+        showlegend=True,
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+
+    return fig
+

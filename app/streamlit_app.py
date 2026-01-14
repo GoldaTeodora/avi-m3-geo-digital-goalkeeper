@@ -1,5 +1,9 @@
 import sys
 from pathlib import Path
+import streamlit as st
+import pandas as pd
+import numpy as np
+
 
 positions = None
 
@@ -10,8 +14,7 @@ positions = None
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-import streamlit as st
-import pandas as pd
+
 
 @st.cache_data
 def infer_game_context_cached(X):
@@ -31,11 +34,14 @@ from src.kpis import (
 
 from src.visualizations import (
     plot_pi1_positional_distribution_plotly,
-    plot_pi2_distance_travelled,
+    plot_pi2_distance_interactive_plotly,     # linha (atual)
+    plot_pi2_distance_travelled_bars,          # NOVO — barras
     plot_pi3_threat_frequency_interactive,
     plot_pi4_reaction_intensity,
     plot_pi5_threat_progression_channels
 )
+
+
 
 def apply_abc_braga_theme():
     st.markdown(
@@ -244,7 +250,7 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
             color:#fff;
             margin-bottom:12px;
         ">
-            👤 <strong>Perfil Ativo</strong><br>
+             <strong>Perfil Ativo</strong><br>
             <span style="font-size:18px;">{st.session_state.persona}</span>
         </div>
         """,
@@ -257,7 +263,7 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
     st.sidebar.markdown("---")
     st.sidebar.markdown("### ⚙️ Configurações")
 
-    # ⬇️⬇️⬇️ ESTA LINHA TEM DE TER EXATAMENTE ESTA INDENTAÇÃO
+    #  ESTA LINHA TEM DE TER EXATAMENTE ESTA INDENTAÇÃO
     fig_scale = st.sidebar.slider(
         "Escala das visualizações",
         0.5, 1.5, 1.0, 0.1
@@ -285,7 +291,7 @@ if st.session_state.persona == "Treinador Principal":
     data_context = "Jogo"
     st.sidebar.markdown(
         "<div style='background:#000;padding:10px;border-radius:8px;color:#fff'>"
-        "📊 <b>Contexto de Análise</b><br>🎥 <b>Pós-Jogo</b>"
+        " <b>Contexto de Análise</b><br> <b>Pós-Jogo</b>"
         "</div>",
         unsafe_allow_html=True
     )
@@ -294,7 +300,7 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
     data_context = "Treino"
     st.sidebar.markdown(
         "<div style='background:#000;padding:10px;border-radius:8px;color:#fff'>"
-        "📊 <b>Contexto de Análise</b><br>🥅 <b>Treino</b>"
+        " <b>Contexto de Análise</b><br> <b>Treino</b>"
         "</div>",
         unsafe_allow_html=True
     )
@@ -347,7 +353,7 @@ if st.session_state.persona == "Treinador Principal":
     )
 
     st.sidebar.markdown("---")
-    if st.sidebar.button("🔄 Mudar perfil", key="btn_mudar_perfil"):
+    if st.sidebar.button(" Mudar perfil", key="btn_mudar_perfil"):
         st.session_state.page = "persona"
         st.session_state.authenticated = False
         st.rerun()
@@ -377,7 +383,7 @@ if st.session_state.persona == "Treinador Principal":
                 key=pi5["percentages"].get
             )
 
-            st.markdown("### 📌 Leitura Tática")
+            st.markdown("###  Leitura Tática")
 
             st.info(
                 f"A maioria das ameaças ofensivas **termina no corredor {dominant_channel.lower()}**.\n\n"
@@ -403,35 +409,40 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
 
     # BOTÃO (o mesmo, mesma key, mas só criado uma vez por execução)
     st.sidebar.markdown("---")
-    if st.sidebar.button("🔄 Mudar perfil", key="btn_mudar_perfil"):
+    if st.sidebar.button(" Mudar perfil", key="btn_mudar_perfil"):
         st.session_state.page = "persona"
         st.session_state.authenticated = False
         st.rerun()
-
 
     # ==================================================
     # PI 1 — Distribuição Posicional
     # ==================================================
     if selected_pi == "PI 1 — Distribuição Posicional":
 
+        # -----------------------------
+        # Controlo de visualização
+        # -----------------------------
+        col1, col2 = st.columns(2)
 
-       col1, col2 = st.columns(2)
-
-       with col1:
-           view_mode = st.radio(
-               "Modo de visualização",
-               ["Densidade", "Pontinhos"],
-               horizontal=True
+        with col1:
+            view_mode_label = st.radio(
+                "Modo de visualização",
+                ["Densidade", "Pontinhos"],
+                horizontal=True
             )
+            view_mode = view_mode_label.lower()  # "densidade" | "pontinhos"
 
-       with col2:
-            zone_color_mode = st.radio(
-            "Cores das zonas",
-            ["Neutro", "Semântico"],
-            horizontal=True
-        )
+        with col2:
+             zone_color_mode = st.radio(
+                 "Cores das zonas",
+                 ["Neutro", "Semântico"],
+                 horizontal=True
+                )
 
-       pi1 = kpis["pi1"]
+        # -----------------------------
+        # Dados do KPI
+        # -----------------------------
+        pi1 = kpis["pi1"]
 
        fig = plot_pi1_positional_distribution_plotly(
           positions=pi1["positions"],
@@ -458,29 +469,34 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
             zone_color_mode=zone_color_mode
 )
 
+           st.plotly_chart(
+               fig,
+               use_container_width=True,
+               key=f"pi1_chart_{view_mode}_{zone_color_mode}"
+            )
 
-       st.plotly_chart(fig, use_container_width=True)
+            # -----------------------------
+            # Leitura Tática Automática
+            # -----------------------------
+           zone_info = pi1["zone_distribution"]
 
-       zone_info = pi1["zone_distribution"]
-       reading = pi1["tactical_reading"]
+           st.markdown("### Leitura Tática Automática")
 
-       st.markdown("###  Leitura Tática Automática")
+           st.caption(
+               "Análise baseada na profundidade média do guarda-redes "
+               "ao longo do jogo (não posição instantânea)."
+            )
 
-       st.caption(
-    "Análise baseada na profundidade média do guarda-redes "
-    "ao longo do jogo (não posição instantânea)."
-)
+           st.write(
+               f"""
+               **Zona Baixa:** {zone_info['baixo']:.1f}%  
+               **Zona Média:** {zone_info['medio']:.1f}%  
+               **Zona Alta:** {zone_info['alto']:.1f}%  
+               """
+            )
 
+           st.info(f"**Interpretação:** {pi1['tactical_reading']}")
 
-       st.write(
-          f"""
-          **Zona Baixa:** {zone_info['baixo']:.1f}%  
-          **Zona Média:** {zone_info['medio']:.1f}%  
-          **Zona Alta:** {zone_info['alto']:.1f}%  
-          """
-        )
-
-       st.info(f" **Interpretação:** {reading}")
 
 
     # --------------------------------------------------
@@ -488,29 +504,125 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
     # --------------------------------------------------
     elif selected_pi == "PI 2 — Distância Percorrida":
 
-        distances = kpis["pi2"]["instant_distances"]
+         distances = kpis["pi2"]["instant_distances"]
 
-        if distances is None or len(distances) == 0:
-            st.warning("Sem dados de deslocamento.")
-            st.stop()
+         if distances is None or len(distances) == 0:
+           st.warning("Sem dados de deslocamento.")
+           st.stop()
 
-        fig = plot_pi2_distance_travelled(distances)
-        st.pyplot(fig)
+         # ----------------------------------------------
+         # Escolha do modo de visualização
+         # ----------------------------------------------
+         view_mode = st.radio(
+              "Modo de visualização",
+               ["Linha (analítico)", "Simplificado (barras)"],
+               horizontal=True
+            )
+
+         # ----------------------------------------------
+         # Slider — instante do jogo
+         # ----------------------------------------------
+         selected_frame = st.slider(
+              "Selecionar instante do jogo (frames)",
+              min_value=0,
+              max_value=len(distances) - 1,
+              value=len(distances) // 2,
+              step=500
+        )
+
+          # ----------------------------------------------
+          # Modo Linha (analítico)
+          # ----------------------------------------------
+         if view_mode == "Linha (analítico)":
+            fig = plot_pi2_distance_interactive_plotly(
+            distances,
+            selected_frame=selected_frame
+        )
+
+          # ----------------------------------------------
+          # Modo Simplificado (barras)
+          # ----------------------------------------------
+         else:
+             fig = plot_pi2_distance_travelled_bars(
+                 distances,
+                 selected_frame=selected_frame,
+                 step=1000
+               )
+
+             st.plotly_chart(
+              fig,
+              use_container_width=True,
+              key=f"pi2_view_mode_{view_mode}"
+)
+
+
+           # ----------------------------------------------
+           # Interpretação automática — GK-Coach
+           # ----------------------------------------------
+         cumulative_distance = np.cumsum(distances)
+         threshold = np.percentile(cumulative_distance, 65)
+         current_distance = cumulative_distance[selected_frame]
+
+         st.markdown("### 🧠 Interpretação do Indicador (GK-Coach)")
+
+         st.markdown(
+             """
+             **O que é a distância acumulada?**  
+             É a soma de todos os deslocamentos realizados pelo guarda-redes até ao instante selecionado.
+             Representa o esforço total de posicionamento, incluindo micro-ajustes defensivos.
+
+             **O que significa a zona de carga elevada?**  
+             A linha de referência corresponde ao 65.º percentil da distância acumulada nesta sessão.
+             Acima deste valor, o esforço é considerado elevado face ao padrão observado.
+             """
+            )
+         if current_distance >= threshold:
+            st.warning(
+            f"""
+            ⚠️ **Carga elevada identificada**
+
+            No instante selecionado (**frame {selected_frame}**),  
+            o guarda-redes já acumulou **{current_distance:.1f} metros**,  
+            ultrapassando a zona de carga elevada.
+
+            👉 Isto pode indicar:
+            - aumento de micro-ajustes posicionais  
+            - maior stress defensivo  
+            - possível impacto na frescura física e na tomada de decisão
+            """
+        )
+         else:
+           st.success(
+            f"""
+          ✅ **Carga controlada**
+
+           No instante selecionado (**frame {selected_frame}**),  
+           o guarda-redes acumulou **{current_distance:.1f} metros**,  
+           mantendo-se abaixo da zona de carga elevada.
+
+           👉 O comportamento defensivo é consistente e energeticamente eficiente.
+           """
+        )
+
 
     # --------------------------------------------------
     # PI 4 — Intensidade de Reação
     # --------------------------------------------------
     elif selected_pi == "PI 4 — Intensidade de Reação":
 
-        speeds = kpis["pi4"]["speed_series"]
+         speeds = kpis["pi4"]["speed_series"]
+         mean_speed = kpis["pi4"]["mean_speed"]
+         max_speed = kpis["pi4"]["max_speed"]
 
-        if speeds is None or len(speeds) == 0:
-            st.warning("Sem dados de velocidade.")
-            
+         if speeds is None or len(speeds) == 0:
+            st.warning("Sem dados de reação.")
+            st.stop()
 
-        fig = plot_pi4_reaction_intensity(
-            speeds,
-            pi1["mean_speed"],
-            pi1["max_speed"]
-        )
-        st.pyplot(fig)
+         fig = plot_pi4_reaction_intensity(
+              speeds,
+              mean_speed,
+              max_speed
+            )
+
+    st.pyplot(fig)
+
