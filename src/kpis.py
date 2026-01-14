@@ -156,11 +156,27 @@ def pi4_reaction_intensity(X: pd.DataFrame):
 
     speed_series = np.sqrt(vx**2 + vy**2)
 
+    # --------------------------------------------------
+    # PROTEÇÃO CONTRA DADOS VAZIOS / INVÁLIDOS
+    # --------------------------------------------------
+    if (
+        speed_series is None
+        or len(speed_series) == 0
+        or np.all(np.isnan(speed_series))
+    ):
+        return {
+            "speed_series": [],
+            "max_speed": 0.0,
+            "mean_speed": 0.0
+        }
+
     return {
         "speed_series": speed_series,
-        "mean_speed": float(np.nanmean(speed_series)),
-        "max_speed": float(np.nanmax(speed_series))
+        "max_speed": float(np.nanmax(speed_series)),
+        "mean_speed": float(np.nanmean(speed_series))
     }
+
+
 
 
    # =====================================================
