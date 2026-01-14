@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 
-positions = None
+#positions = None
 
 
 # --------------------------------------------------
@@ -125,6 +125,13 @@ if "persona" not in st.session_state:
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
+if "data_ready" not in st.session_state:
+    st.session_state.data_ready = False
+
+if "X_train" not in st.session_state:
+    st.session_state.X_train = None
+
+
 
 # ==================================================
 # PÁGINA 1 — BOAS-VINDAS
@@ -233,14 +240,81 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
 
 
     # --------------------------------------------------
-    # CARREGAMENTO DE DADOS
+    # CARREGAMENTO DE DADOS (UPLOAD OU DATASET DE DEMO)
     # --------------------------------------------------
-    @st.cache_data
-    def load_data():
-        data = load_datasets()
-        return data["X_train"]
+    if not st.session_state.data_ready:
 
-    X_train = load_data()
+       st.markdown("## 📂 Dados do Jogo / Treino")
+
+       st.markdown(
+          """
+          Carregue um ficheiro `.csv` com os dados de tracking do guarda-redes.
+
+          **Formato esperado (obrigatório):**
+           - `#x0`  → posição lateral do guarda-redes  
+           - `#y0`  → profundidade do guarda-redes  
+           - `#vx0` → velocidade lateral  
+           - `#vy0` → velocidade longitudinal  
+
+           Cada linha corresponde a **um frame temporal**.
+           """
+        )
+
+       uploaded_file = st.file_uploader(
+          "Selecionar ficheiro (.csv)",
+           type=["csv"]
+        )
+
+       if uploaded_file is not None:
+          st.session_state.X_train = pd.read_csv(uploaded_file)
+          st.session_state.data_ready = True
+          st.rerun()
+
+
+       if st.button("▶️ Continuar com dados de treino (exemplo)"):
+          @st.cache_data
+          def load_data():
+              data = load_datasets()
+              return data["X_train"]
+
+          X_train = load_data()
+          st.session_state.X_train = load_data()
+          st.session_state.data_ready = True
+          st.rerun()
+
+
+          st.stop()  # 👈 impede QUALQUER gráfico nesta fase
+
+    # --------------------------------------------------
+    # RECUPERAR DATASET ATIVO (OBRIGATÓRIO)
+    # --------------------------------------------------
+    
+    if st.session_state.X_train is None:
+       st.stop()
+
+    X_train = st.session_state.X_train
+
+
+
+
+    # --------------------------------------------------
+    # VALIDAÇÃO DO FORMATO (APENAS PARA UPLOAD)
+    # --------------------------------------------------
+    required_columns = {"#x0", "#y0", "#vx0", "#vy0"}
+
+    if "X_train" in st.session_state:
+        if not required_columns.issubset(X_train.columns):
+           st.error(
+              "O ficheiro carregado não contém todas as colunas necessárias.\n\n"
+              "Colunas obrigatórias:\n"
+              "- #x0, #y0 (posição)\n"
+              "- #vx0, #vy0 (velocidade)"
+            )
+           st.stop()
+
+
+   
+
 
     # --------------------------------------------------
     # SIDEBAR — PERFIL DO UTILIZADOR
@@ -261,6 +335,16 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
         """,
         unsafe_allow_html=True
     )
+
+    # --------------------------------------------------
+    # SIDEBAR — AÇÕES GERAIS
+    # --------------------------------------------------
+    st.sidebar.markdown("---")
+
+    if st.sidebar.button("🔁 Trocar dataset"):
+       st.session_state.data_ready = False
+       st.rerun()
+
 
     # --------------------------------------------------
     # SIDEBAR — CONFIGURAÇÕES
@@ -316,6 +400,7 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
         "</div>",
         unsafe_allow_html=True
     )
+
 
 
 # --------------------------------------------------
@@ -549,8 +634,10 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
          if view_mode == "Linha (analítico)":
            fig = plot_pi2_distance_interactive_plotly(
               distances,
-              selected_frame=selected_frame
-    )
+              selected_frame=selected_frame,
+              percentil_carga=percentil_carga
+            )
+
 
            st.plotly_chart(
             fig,

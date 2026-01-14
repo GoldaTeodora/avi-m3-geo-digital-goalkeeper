@@ -162,19 +162,55 @@ def plot_pi1_positional_distribution_plotly(
             tuple(y.round(4))
         )
 
+
         fig.add_trace(
-            go.Contour(
-                x=xi[:, 0],
-                y=yi[0, :],
-                z=zi.T,
-                colorscale="Blues",
-                ncontours=10,
-                opacity=0.9,
-                showscale=True,
-                hoverinfo="skip",
-                name="Densidade"
-            )
+           go.Contour(
+           x=xi[:, 0],
+           y=yi[0, :],
+           z=zi.T,
+           colorscale="Blues",
+           ncontours=10,
+           opacity=0.9,
+           showscale=True,
+           hovertemplate=(
+              "<b>Densidade Posicional</b><br>"
+              "Altura no campo (y): %{y:.2f}<br><br>"
+              "<b>Leitura tática:</b><br>"
+              "%{customdata}"
+              "<extra></extra>"
+            ),
+            customdata=[
+               [
+                "Zona Baixa — Proteção da baliza e posicionamento conservador"
+                if y < Z_LOW else
+                "Zona Média — Zona de cobertura e leitura defensiva"
+                if y < Z_MID else
+                "Zona Alta — Comportamento sweeper e antecipação"
+                for _ in xi[:, 0]
+               ]
+               for y in yi[0, :]
+          ],
+            name="Densidade",
+            colorbar=dict(
+               title=dict(
+                  text="Densidade<br>posicional",
+                  font=dict(size=12, color="white")
+                ),
+                tickvals=[0.4, 0.8, 1.2, 1.6],
+                ticktext=[
+                   "Baixa<br>(posição estável)",
+                   "Média<br>(ajustes frequentes)",
+                   "Alta<br>(envolvimento ativo)",
+                   "Muito alta<br>(pressão defensiva)"
+                ],
+                tickfont=dict(size=10, color="white")
         )
+    )
+)
+
+    
+
+
 
     # --------------------------------------------------
     # MODO: PONTINHOS (SUBAMOSTRADO)
@@ -188,7 +224,7 @@ def plot_pi1_positional_distribution_plotly(
         )
 
         fig.add_trace(
-    go.Scatter(
+        go.Scatter(
         x=positions_pts["#x0"],
         y=positions_pts["#y0"],
         mode="markers",
@@ -281,19 +317,19 @@ def plot_pi3_threat_frequency_interactive(heatmap):
     )
 
     fig.update_coloraxes(
-        cmin=heatmap_log.min(),
-        cmax=np.percentile(heatmap_log, 95),
-        colorbar=dict(
-            title="Frequência de Ameaças",
-            tickmode="array",
-            tickvals=[1.3, 1.6, 2.0],
-            ticktext=[
-                "Baixa",
-                "Média",
-                "Alta"
-            ]
-            )
-    )
+    cmin=heatmap_log.min(),
+    cmax=np.percentile(heatmap_log, 95),
+    colorbar=dict(
+    title=dict(
+        text="Frequência de Ameaças"
+    ),
+    tickmode="array",
+    tickvals=[1.3, 1.6, 2.0],
+    ticktext=["Baixa", "Média", "Alta"]
+)
+
+)
+
 
     fig.update_layout(
         title="PI 3 — Origem Espacial das Ameaças Ofensivas",
@@ -485,7 +521,8 @@ def plot_pi2_distance_travelled_bars(
 # =====================================================
 def plot_pi2_distance_interactive_plotly(
     distances: np.ndarray,
-    selected_frame: int
+    selected_frame: int,
+    percentil_carga: int
 ):
     """
     Visualização analítica do PI 2
@@ -658,9 +695,6 @@ def plot_pi4_reaction_interactive(
 
 
 
-# =====================================================
-# PI 4 — CONTEXTO ESPACIAL (BALIZA)
-# =====================================================
 # =====================================================
 # PI 4 — Contexto Espacial na Baliza
 # =====================================================
