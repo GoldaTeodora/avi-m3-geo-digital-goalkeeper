@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 
-positions = None
+#positions = None
 
 
 # --------------------------------------------------
@@ -34,12 +34,17 @@ from src.kpis import (
 
 from src.visualizations import (
     plot_pi1_positional_distribution_plotly,
-    plot_pi2_distance_interactive_plotly,     # linha (atual)
-    plot_pi2_distance_travelled_bars,          # NOVO — barras
+    plot_pi2_distance_interactive_plotly,
+    plot_pi2_distance_travelled_bars,
     plot_pi3_threat_frequency_interactive,
-    plot_pi4_reaction_intensity,
+    plot_pi4_reaction_interactive,   # ✅ PI4 INTERATIVO
+    plot_pi4_reaction_intensity,     # (opcional, matplotlib)
+    plot_pi4_goal_context,
     plot_pi5_threat_progression_channels
 )
+
+
+
 
 
 
@@ -119,6 +124,13 @@ if "persona" not in st.session_state:
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+
+if "data_ready" not in st.session_state:
+    st.session_state.data_ready = False
+
+if "X_train" not in st.session_state:
+    st.session_state.X_train = None
+
 
 
 # ==================================================
@@ -228,14 +240,81 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
 
 
     # --------------------------------------------------
-    # CARREGAMENTO DE DADOS
+    # CARREGAMENTO DE DADOS (UPLOAD OU DATASET DE DEMO)
     # --------------------------------------------------
-    @st.cache_data
-    def load_data():
-        data = load_datasets()
-        return data["X_train"]
+    if not st.session_state.data_ready:
 
-    X_train = load_data()
+       st.markdown("## 📂 Dados do Jogo / Treino")
+
+       st.markdown(
+          """
+          Carregue um ficheiro `.csv` com os dados de tracking do guarda-redes.
+
+          **Formato esperado (obrigatório):**
+           - `#x0`  → posição lateral do guarda-redes  
+           - `#y0`  → profundidade do guarda-redes  
+           - `#vx0` → velocidade lateral  
+           - `#vy0` → velocidade longitudinal  
+
+           Cada linha corresponde a **um frame temporal**.
+           """
+        )
+
+       uploaded_file = st.file_uploader(
+          "Selecionar ficheiro (.csv)",
+           type=["csv"]
+        )
+
+       if uploaded_file is not None:
+          st.session_state.X_train = pd.read_csv(uploaded_file)
+          st.session_state.data_ready = True
+          st.rerun()
+
+
+       if st.button("▶️ Continuar com dados de treino (exemplo)"):
+          @st.cache_data
+          def load_data():
+              data = load_datasets()
+              return data["X_train"]
+
+          X_train = load_data()
+          st.session_state.X_train = load_data()
+          st.session_state.data_ready = True
+          st.rerun()
+
+
+          st.stop()  # 👈 impede QUALQUER gráfico nesta fase
+
+    # --------------------------------------------------
+    # RECUPERAR DATASET ATIVO (OBRIGATÓRIO)
+    # --------------------------------------------------
+    
+    if st.session_state.X_train is None:
+       st.stop()
+
+    X_train = st.session_state.X_train
+
+
+
+
+    # --------------------------------------------------
+    # VALIDAÇÃO DO FORMATO (APENAS PARA UPLOAD)
+    # --------------------------------------------------
+    required_columns = {"#x0", "#y0", "#vx0", "#vy0"}
+
+    if "X_train" in st.session_state:
+        if not required_columns.issubset(X_train.columns):
+           st.error(
+              "O ficheiro carregado não contém todas as colunas necessárias.\n\n"
+              "Colunas obrigatórias:\n"
+              "- #x0, #y0 (posição)\n"
+              "- #vx0, #vy0 (velocidade)"
+            )
+           st.stop()
+
+
+   
+
 
     # --------------------------------------------------
     # SIDEBAR — PERFIL DO UTILIZADOR
@@ -258,10 +337,27 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
     )
 
     # --------------------------------------------------
+    # SIDEBAR — AÇÕES GERAIS
+    # --------------------------------------------------
+    st.sidebar.markdown("---")
+
+    if st.sidebar.button("🔁 Trocar dataset"):
+       st.session_state.data_ready = False
+       st.rerun()
+
+
+    # --------------------------------------------------
     # SIDEBAR — CONFIGURAÇÕES
     # --------------------------------------------------
     st.sidebar.markdown("---")
     st.sidebar.markdown("### ⚙️ Configurações")
+
+    percentil_carga = st.sidebar.selectbox(
+    "Percentil de carga",
+    [60, 65, 70],
+    index=1
+)
+
 
     #  ESTA LINHA TEM DE TER EXATAMENTE ESTA INDENTAÇÃO
     fig_scale = st.sidebar.slider(
@@ -318,11 +414,18 @@ st.sidebar.markdown("### Selecionar Indicador")
 X_filtered = X_train.iloc[frame_start:frame_end:step]
 X_contextual = infer_game_context_cached(X_filtered)
 
-X_persona = (
-    X_contextual[X_contextual["contexto"] == data_context]
-    if "contexto" in X_contextual.columns
-    else X_contextual
-)
+if "contexto" in X_contextual.columns:
+    X_persona = X_contextual[X_contextual["contexto"] == data_context]
+
+    if X_persona.empty:
+        X_persona = X_contextual   # fallback: não mata os dados
+else:
+    X_persona = X_contextual
+
+
+
+
+
 
 # --------------------------------------------------
 # PIs
@@ -337,6 +440,7 @@ def compute_kpis(X):
     }
 
 kpis = compute_kpis(X_persona)
+
 
   
 # ==================================================
@@ -534,10 +638,19 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
           # Modo Linha (analítico)
           # ----------------------------------------------
          if view_mode == "Linha (analítico)":
-            fig = plot_pi2_distance_interactive_plotly(
-            distances,
-            selected_frame=selected_frame
-        )
+           fig = plot_pi2_distance_interactive_plotly(
+              distances,
+              selected_frame=selected_frame,
+              percentil_carga=percentil_carga
+            )
+
+
+           st.plotly_chart(
+            fig,
+            use_container_width=True,
+            key="pi2_line_analytic"
+    )
+
 
           # ----------------------------------------------
           # Modo Simplificado (barras)
@@ -603,26 +716,68 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
            👉 O comportamento defensivo é consistente e energeticamente eficiente.
            """
         )
+    
 
-
+    
     # --------------------------------------------------
-    # PI 4 — Intensidade de Reação
+    # PI 4 — Intensidade de Reação (INTERATIVO + BALIZA)
     # --------------------------------------------------
     elif selected_pi == "PI 4 — Intensidade de Reação":
 
-         speeds = kpis["pi4"]["speed_series"]
-         mean_speed = kpis["pi4"]["mean_speed"]
-         max_speed = kpis["pi4"]["max_speed"]
+        speeds = kpis["pi4"]["speed_series"]
+        mean_speed = kpis["pi4"]["mean_speed"]
+        max_speed = kpis["pi4"]["max_speed"]
 
-         if speeds is None or len(speeds) == 0:
+        if speeds is None or len(speeds) == 0:
             st.warning("Sem dados de reação.")
             st.stop()
 
-         fig = plot_pi4_reaction_intensity(
-              speeds,
-              mean_speed,
-              max_speed
+        # Slider — instante do jogo
+        selected_frame = st.slider(
+            "Selecionar instante da reação (frames)",
+            min_value=0,
+            max_value=len(speeds) - 1,
+            value=len(speeds) // 2
+        )
+
+        # -----------------------------
+        # Layout em colunas
+        # -----------------------------
+        col1, col2 = st.columns([2, 1])
+
+        # -----------------------------
+        # Gráfico temporal
+        # -----------------------------
+        with col1:
+            fig_time = plot_pi4_reaction_interactive(
+                speeds,
+                mean_speed,
+                max_speed,
+                selected_frame
+            )
+            st.plotly_chart(fig_time, use_container_width=True)
+
+            st.caption(
+                "Curva de intensidade de reação ao longo do tempo "
+                "(suavizada para melhor leitura). "
+                "O ponto amarelo indica o instante selecionado."
             )
 
-    st.pyplot(fig)
+        # -----------------------------
+        # Contexto espacial — baliza
+        # -----------------------------
+        with col2:
+            # Proteção de índice
+            selected_frame_safe = min(selected_frame, len(X_persona) - 1)
 
+            x_gk = float(X_persona.iloc[selected_frame_safe]["#x0"])
+            y_gk = float(X_persona.iloc[selected_frame_safe]["#y0"])
+
+            fig_goal = plot_pi4_goal_context(x_gk, y_gk)
+
+            st.plotly_chart(fig_goal, use_container_width=True)
+
+            st.caption(
+                "Posição do guarda-redes na baliza "
+                "no instante selecionado."
+            )
