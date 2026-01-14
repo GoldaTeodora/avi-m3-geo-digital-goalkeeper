@@ -21,3 +21,5 @@ notebooks/*.ipynb
 
 # Dados grandes
 data/raw/*.csv
+tatus
+.venv/
