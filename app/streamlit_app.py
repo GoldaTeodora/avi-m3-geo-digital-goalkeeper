@@ -34,12 +34,17 @@ from src.kpis import (
 
 from src.visualizations import (
     plot_pi1_positional_distribution_plotly,
-    plot_pi2_distance_interactive_plotly,     # linha (atual)
-    plot_pi2_distance_travelled_bars,          # NOVO — barras
+    plot_pi2_distance_interactive_plotly,
+    plot_pi2_distance_travelled_bars,
     plot_pi3_threat_frequency_interactive,
-    plot_pi4_reaction_intensity,
+    plot_pi4_reaction_interactive,   # ✅ PI4 INTERATIVO
+    plot_pi4_reaction_intensity,     # (opcional, matplotlib)
+    plot_pi4_goal_context,
     plot_pi5_threat_progression_channels
 )
+
+
+
 
 
 
@@ -263,6 +268,13 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
     st.sidebar.markdown("---")
     st.sidebar.markdown("### ⚙️ Configurações")
 
+    percentil_carga = st.sidebar.selectbox(
+    "Percentil de carga",
+    [60, 65, 70],
+    index=1
+)
+
+
     #  ESTA LINHA TEM DE TER EXATAMENTE ESTA INDENTAÇÃO
     fig_scale = st.sidebar.slider(
         "Escala das visualizações",
@@ -323,8 +335,6 @@ else:
 
 
 
-
-
     # --------------------------------------------------
     # PIs
     # --------------------------------------------------
@@ -338,6 +348,7 @@ def compute_kpis(X):
         }
 
 kpis = compute_kpis(X_persona)
+
 
   
 # ==================================================
@@ -536,10 +547,17 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
           # Modo Linha (analítico)
           # ----------------------------------------------
          if view_mode == "Linha (analítico)":
-            fig = plot_pi2_distance_interactive_plotly(
-            distances,
-            selected_frame=selected_frame
-        )
+           fig = plot_pi2_distance_interactive_plotly(
+              distances,
+              selected_frame=selected_frame
+    )
+
+           st.plotly_chart(
+            fig,
+            use_container_width=True,
+            key="pi2_line_analytic"
+    )
+
 
           # ----------------------------------------------
           # Modo Simplificado (barras)
@@ -605,26 +623,68 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
            👉 O comportamento defensivo é consistente e energeticamente eficiente.
            """
         )
+    
 
-
+    
     # --------------------------------------------------
-    # PI 4 — Intensidade de Reação
+    # PI 4 — Intensidade de Reação (INTERATIVO + BALIZA)
     # --------------------------------------------------
     elif selected_pi == "PI 4 — Intensidade de Reação":
 
-         speeds = kpis["pi4"]["speed_series"]
-         mean_speed = kpis["pi4"]["mean_speed"]
-         max_speed = kpis["pi4"]["max_speed"]
+        speeds = kpis["pi4"]["speed_series"]
+        mean_speed = kpis["pi4"]["mean_speed"]
+        max_speed = kpis["pi4"]["max_speed"]
 
-         if speeds is None or len(speeds) == 0:
+        if speeds is None or len(speeds) == 0:
             st.warning("Sem dados de reação.")
             st.stop()
 
-         fig = plot_pi4_reaction_intensity(
-              speeds,
-              mean_speed,
-              max_speed
+        # Slider — instante do jogo
+        selected_frame = st.slider(
+            "Selecionar instante da reação (frames)",
+            min_value=0,
+            max_value=len(speeds) - 1,
+            value=len(speeds) // 2
+        )
+
+        # -----------------------------
+        # Layout em colunas
+        # -----------------------------
+        col1, col2 = st.columns([2, 1])
+
+        # -----------------------------
+        # Gráfico temporal
+        # -----------------------------
+        with col1:
+            fig_time = plot_pi4_reaction_interactive(
+                speeds,
+                mean_speed,
+                max_speed,
+                selected_frame
+            )
+            st.plotly_chart(fig_time, use_container_width=True)
+
+            st.caption(
+                "Curva de intensidade de reação ao longo do tempo "
+                "(suavizada para melhor leitura). "
+                "O ponto amarelo indica o instante selecionado."
             )
 
-    st.pyplot(fig)
+        # -----------------------------
+        # Contexto espacial — baliza
+        # -----------------------------
+        with col2:
+            # Proteção de índice
+            selected_frame_safe = min(selected_frame, len(X_persona) - 1)
 
+            x_gk = float(X_persona.iloc[selected_frame_safe]["#x0"])
+            y_gk = float(X_persona.iloc[selected_frame_safe]["#y0"])
+
+            fig_goal = plot_pi4_goal_context(x_gk, y_gk)
+
+            st.plotly_chart(fig_goal, use_container_width=True)
+
+            st.caption(
+                "Posição do guarda-redes na baliza "
+                "no instante selecionado."
+            )
