@@ -220,6 +220,7 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
         st.warning("Persona não definida. Volte à seleção de persona.")
         st.stop()
 
+
     # --------------------------------------------------
     # CARREGAMENTO DE DADOS
     # --------------------------------------------------
@@ -313,7 +314,7 @@ X_persona = (
 
 
     # --------------------------------------------------
-    # KPIs
+    # PIs
     # --------------------------------------------------
 @st.cache_data
 def compute_kpis(X):
@@ -332,9 +333,6 @@ kpis = compute_kpis(X_persona)
 # ==================================================
 if st.session_state.persona == "Treinador Principal":
 
-    st.header("📊 Análise Estratégica Defensiva")
-    st.caption("Contexto: Pós-Jogo")
-
     selected_pi = st.sidebar.radio(
         "Selecionar indicador",
         [
@@ -343,6 +341,13 @@ if st.session_state.persona == "Treinador Principal":
         ],
         key="pi_tr_principal"
     )
+
+    # BOTÃO (logo a seguir)
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🔄 Mudar perfil", key="btn_mudar_perfil"):
+        st.session_state.page = "persona"
+        st.session_state.authenticated = False
+        st.rerun()
 
     # ---------------- PI 3 ----------------
     if selected_pi == "PI 3 — Origem Espacial das Ameaças":
@@ -378,15 +383,10 @@ if st.session_state.persona == "Treinador Principal":
             )
 
 
-
-
 # ==================================================
 # DASHBOARD — TREINADOR DE GUARDA-REDES
 # ==================================================
 elif st.session_state.persona == "Treinador de Guarda-Redes":
-
-    st.header("🧤 Análise do Guarda-Redes")
-    st.caption("Contexto: Pós-Jogo")
 
     selected_pi = st.sidebar.radio(
         "Selecionar indicador (Guarda-Redes)",
@@ -398,12 +398,19 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
         key="pi_gr"
     )
 
+    # BOTÃO (o mesmo, mesma key, mas só criado uma vez por execução)
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🔄 Mudar perfil", key="btn_mudar_perfil"):
+        st.session_state.page = "persona"
+        st.session_state.authenticated = False
+        st.rerun()
+
+
     # ==================================================
     # PI 1 — Distribuição Posicional
     # ==================================================
     if selected_pi == "PI 1 — Distribuição Posicional":
 
-       st.sidebar.markdown("### Visualização do PI 1")
 
        col1, col2 = st.columns(2)
 
@@ -509,7 +516,7 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
 
         if speeds is None or len(speeds) == 0:
             st.warning("Sem dados de velocidade.")
-            st.stop()
+            
 
         fig = plot_pi4_reaction_intensity(
             speeds,
@@ -517,11 +524,3 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
             pi1["max_speed"]
         )
         st.pyplot(fig)
-
-
-        st.sidebar.markdown("---")
-if st.sidebar.button("🔄 Mudar perfil"):
-    st.session_state.page = "persona"
-    st.session_state.authenticated = False
-    st.rerun()
-
