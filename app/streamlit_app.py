@@ -403,19 +403,18 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
     # ==================================================
     if selected_pi == "PI 1 — Distribuição Posicional":
 
-       st.sidebar.markdown("### Visualização do PI 1")
-
        col1, col2 = st.columns(2)
 
        with col1:
-           view_mode = st.radio(
-               "Modo de visualização",
-               ["Densidade", "Pontinhos"],
-               horizontal=True
-            )
+             view_mode_label = st.radio(
+            "Modo de visualização",
+            ["Densidade", "Pontinhos"],
+            horizontal=True
+        )
+       view_mode = view_mode_label.lower()
 
        with col2:
-            zone_color_mode = st.radio(
+        zone_color_mode = st.radio(
             "Cores das zonas",
             ["Neutro", "Semântico"],
             horizontal=True
@@ -424,34 +423,36 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
        pi1 = kpis["pi1"]
 
        fig = plot_pi1_positional_distribution_plotly(
-          positions=pi1["positions"],
-          mean_position=pi1["mean_position"],
-          tactical_reading=pi1["tactical_reading"],
-          view_mode=view_mode,
-          zone_color_mode=zone_color_mode
-)
+        positions=pi1["positions"],
+        mean_position=pi1["mean_position"],
+        tactical_reading=pi1["tactical_reading"],
+        view_mode=view_mode,
+        zone_color_mode=zone_color_mode
+    )
+
+       st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=f"pi1_chart_{view_mode}_{zone_color_mode}"
+    )
 
 
-       st.plotly_chart(fig, use_container_width=True)
 
-       view_mode = st.sidebar.radio(
-           "Modo de visualização",
-           ["Pontinhos (posições)", "Densidade (padrão)"],
-           index=0
-        )
-
-       zone_color_mode = st.sidebar.radio(
-           "Cores das zonas",
-           ["Semântico (Azul/Verde/Vermelho)", "Neutro"],
-           index=0
-        )
-
-
+       
        pi1 = kpis.get("pi1")
   
        if pi1 is None or pi1.get("positions") is None or pi1["positions"].empty:
-           st.warning("Dados insuficientes para análise posicional com os filtros atuais.")
-           st.stop()
+          st.warning("Dados insuficientes para análise posicional com os filtros atuais.")
+       else:
+           fig = plot_pi1_positional_distribution_plotly(
+           positions=pi1["positions"],
+           mean_position=pi1["mean_position"],
+           tactical_reading=pi1["tactical_reading"],
+           view_mode=view_mode,
+           zone_color_mode=zone_color_mode
+        )
+           st.plotly_chart(fig, use_container_width=True)
+
 
        fig = plot_pi1_positional_distribution_plotly(
             positions=pi1["positions"],
@@ -470,8 +471,8 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
        st.markdown("###  Leitura Tática Automática")
 
        st.caption(
-    "Análise baseada na profundidade média do guarda-redes "
-    "ao longo do jogo (não posição instantânea)."
+       "Análise baseada na profundidade média do guarda-redes "
+       "ao longo do jogo (não posição instantânea)."
 )
 
 

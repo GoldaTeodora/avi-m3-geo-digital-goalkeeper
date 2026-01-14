@@ -8,28 +8,86 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from scipy.stats import gaussian_kde
+from functools import lru_cache
+
+@lru_cache(maxsize=8)
+def compute_kde_cached(x_tuple, y_tuple):
+    x = np.array(x_tuple)
+    y = np.array(y_tuple)
+    kde = gaussian_kde(np.vstack([x, y]), bw_method=0.25)
+    xi, yi = np.mgrid[0:1:120j, 0:1:120j]
+    zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
+    return xi, yi, zi
 
 
 # =====================================================
 # PI 1 — Distribuição Posicional do Guarda-Redes (INTERATIVO)
 # Persona: Treinador de Guarda-Redes
 # =====================================================
+
+import plotly.graph_objects as go
+import pandas as pd
+import numpy as np
+from scipy.stats import gaussian_kde
+from functools import lru_cache
+
+
+# --------------------------------------------------
+# KDE cacheado (performance)
+# --------------------------------------------------
+@lru_cache(maxsize=8)
+def compute_kde_cached(x_tuple, y_tuple):
+    x = np.array(x_tuple)
+    y = np.array(y_tuple)
+
+    kde = gaussian_kde(np.vstack([x, y]), bw_method=0.25)
+    xi, yi = np.mgrid[0:1:120j, 0:1:120j]
+    zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
+
+    return xi, yi, zi
+
+
+# --------------------------------------------------
+# PI 1 — Visualização
+# --------------------------------------------------
 def plot_pi1_positional_distribution_plotly(
     positions: pd.DataFrame,
-    mean_position: tuple,
+    mean_position: tuple | None,
     tactical_reading: str,
-    view_mode: str = "Densidade",
-    zone_color_mode: str = "Neutro"
+    view_mode: str = "densidade",      # "densidade" | "pontinhos"
+    zone_color_mode: str = "Neutro"     # "Neutro" | "Semântico"
 ):
-    import numpy as np
-    from scipy.stats import gaussian_kde
-    import plotly.graph_objects as go
+    """
+    PI 1 — Distribuição Posicional do Guarda-Redes
+    Visualização robusta, rápida e defensável (TRL-6)
+    """
+
+    # --------------------------------------------------
+    # Robustez mínima
+    # --------------------------------------------------
+    if positions is None or positions.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title="PI 1 — Distribuição Posicional do Guarda-Redes",
+            plot_bgcolor="#0E0E0E",
+            paper_bgcolor="#0E0E0E",
+            annotations=[
+                dict(
+                    text="Dados insuficientes para visualização posicional",
+                    x=0.5, y=0.5,
+                    xref="paper", yref="paper",
+                    showarrow=False,
+                    font=dict(color="white", size=14)
+                )
+            ]
+        )
+        return fig
 
     fig = go.Figure()
 
-    # -----------------------------
+    # --------------------------------------------------
     # Campo normalizado
-    # -----------------------------
+    # --------------------------------------------------
     fig.update_xaxes(range=[0, 1], visible=False, fixedrange=True)
     fig.update_yaxes(
         range=[0, 1],
@@ -41,20 +99,17 @@ def plot_pi1_positional_distribution_plotly(
     fig.update_layout(
         plot_bgcolor="#0E0E0E",
         paper_bgcolor="#0E0E0E",
-        margin=dict(l=120, r=40, t=60, b=40),
+        margin=dict(l=180, r=40, t=60, b=40),
         title="PI 1 — Distribuição Posicional do Guarda-Redes",
         legend=dict(font=dict(color="white"))
     )
 
-    # -----------------------------
-    # Limites das zonas (FIXOS)
-    # -----------------------------
+    # --------------------------------------------------
+    # Zonas funcionais (FIXAS)
+    # --------------------------------------------------
     Z_LOW = 0.18
     Z_MID = 0.35
 
-    # -----------------------------
-    # Zonas (cores de fundo)
-    # -----------------------------
     if zone_color_mode == "Semântico":
         colors = {
             "low": "rgba(31,119,180,0.25)",
@@ -68,6 +123,7 @@ def plot_pi1_positional_distribution_plotly(
             "high": "rgba(100,100,100,0.12)"
         }
 
+    # Zonas de fundo
     fig.add_shape(type="rect", x0=0, x1=1, y0=0, y1=Z_LOW,
                   fillcolor=colors["low"], line=dict(width=0), layer="below")
 
@@ -77,9 +133,7 @@ def plot_pi1_positional_distribution_plotly(
     fig.add_shape(type="rect", x0=0, x1=1, y0=Z_MID, y1=1,
                   fillcolor=colors["high"], line=dict(width=0), layer="below")
 
-    # -----------------------------
-    # Linhas de separação (sempre visíveis)
-    # -----------------------------
+    # Linhas horizontais
     for y in [Z_LOW, Z_MID]:
         fig.add_shape(
             type="line",
@@ -88,60 +142,69 @@ def plot_pi1_positional_distribution_plotly(
             line=dict(color="white", dash="dot", width=1)
         )
 
-    # -----------------------------
-    # Labels FORA do gráfico (lado esquerdo)
-    # -----------------------------
+    # --------------------------------------------------
+    # Labels alinhadas às linhas (fora do campo)
+    # --------------------------------------------------
     labels = [
-        ("Zona Alta\nComportamento sweeper", (Z_MID + 1) / 2),
-        ("Zona Média\nZona de cobertura", (Z_LOW + Z_MID) / 2),
-        ("Zona Baixa\nLinha da baliza", Z_LOW / 2)
+        ("Zona Alta — Comportamento sweeper", Z_MID),
+        ("Zona Média — Zona de cobertura", Z_LOW),
+        ("Zona Baixa — Linha da baliza", 0.0),
     ]
 
     for text, y in labels:
         fig.add_annotation(
-            x=-0.05,
+            x=-0.06,
             y=y,
             xref="paper",
             yref="y",
             text=text,
-            showarrow=True,
-            arrowhead=2,
-            arrowsize=1,
-            arrowwidth=1,
-            arrowcolor="white",
+            showarrow=False,
             font=dict(color="white", size=12),
+            xanchor="right",
+            yanchor="middle",
             align="right"
         )
 
-    # -----------------------------
+    # --------------------------------------------------
     # MODO: DENSIDADE
-    # -----------------------------
-    if view_mode == "Densidade" and len(positions) > 30:
-        x = positions["#x0"].values
-        y = positions["#y0"].values
-
-        kde = gaussian_kde(np.vstack([x, y]), bw_method=0.25)
-        xi, yi = np.mgrid[0:1:200j, 0:1:200j]
-        zi = kde(np.vstack([xi.flatten(), yi.flatten()])).reshape(xi.shape)
-
-        fig.add_trace(
-            go.Contour(
-                x=xi[:, 0],
-                y=yi[0, :],
-                z=zi.T,
-                colorscale="Blues",
-                ncontours=10,
-                opacity=0.9,
-                showscale=True,
-                hoverinfo="skip",
-                name="Densidade"
+    # --------------------------------------------------
+    if view_mode == "densidade" and len(positions) > 30:
+        try:
+            MAX_KDE_POINTS = 3000
+            positions_kde = (
+                positions.sample(n=MAX_KDE_POINTS, random_state=42)
+                if len(positions) > MAX_KDE_POINTS
+                else positions
             )
-        )
 
-    # -----------------------------
+            x = positions_kde["#x0"].values
+            y = positions_kde["#y0"].values
+
+            xi, yi, zi = compute_kde_cached(
+                tuple(x.round(4)),
+                tuple(y.round(4))
+            )
+
+            fig.add_trace(
+                go.Contour(
+                    x=xi[:, 0],
+                    y=yi[0, :],
+                    z=zi.T,
+                    colorscale="Blues",
+                    ncontours=10,
+                    opacity=0.9,
+                    showscale=True,
+                    hoverinfo="skip",
+                    name="Densidade"
+                )
+            )
+        except Exception:
+            pass
+
+    # --------------------------------------------------
     # MODO: PONTINHOS
-    # -----------------------------
-    if view_mode == "Pontinhos":
+    # --------------------------------------------------
+    if view_mode == "pontinhos":
         fig.add_trace(
             go.Scatter(
                 x=positions["#x0"],
@@ -152,33 +215,35 @@ def plot_pi1_positional_distribution_plotly(
             )
         )
 
-    # -----------------------------
-    # Guarda-redes (posição média)
-    # -----------------------------
-    fig.add_trace(
-        go.Scatter(
-            x=[mean_position[0]],
-            y=[mean_position[1]],
-            mode="markers",
-            marker=dict(
-                size=22,
-                color="white",
-                line=dict(color="black", width=2)
-            ),
-            name="Guarda-Redes"
+    # --------------------------------------------------
+    # Posição média do guarda-redes
+    # --------------------------------------------------
+    if mean_position is not None:
+        fig.add_trace(
+            go.Scatter(
+                x=[mean_position[0]],
+                y=[mean_position[1]],
+                mode="markers",
+                marker=dict(
+                    size=22,
+                    color="white",
+                    line=dict(color="black", width=2)
+                ),
+                name="Guarda-Redes"
+            )
         )
-    )
 
-    # Linha da profundidade média
-    fig.add_shape(
-        type="line",
-        x0=0, x1=1,
-        y0=mean_position[1],
-        y1=mean_position[1],
-        line=dict(color="#FFD700", width=2, dash="dot")
-    )
+        fig.add_shape(
+            type="line",
+            x0=0, x1=1,
+            y0=mean_position[1],
+            y1=mean_position[1],
+            line=dict(color="#FFD700", width=2, dash="dot")
+        )
 
+    # --------------------------------------------------
     # Perfil tático
+    # --------------------------------------------------
     fig.add_annotation(
         x=0.5,
         y=1.05,
@@ -190,6 +255,8 @@ def plot_pi1_positional_distribution_plotly(
     )
 
     return fig
+
+
 
 
 
