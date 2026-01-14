@@ -278,7 +278,7 @@ elif st.session_state.page == "dashboard" and st.session_state.authenticated:
 
    
 
-## --------------------------------------------------
+# --------------------------------------------------
 # CONTEXTO DE ANÁLISE (DEFINIDO PELA PERSONA)
 # --------------------------------------------------
 if st.session_state.persona == "Treinador Principal":
@@ -299,6 +299,12 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
         unsafe_allow_html=True
     )
 
+# --------------------------------------------------
+# ESPAÇO + TÍTULO
+# --------------------------------------------------
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+st.sidebar.markdown("### Selecionar Indicador")
+
 
 # --------------------------------------------------
 # APLICAÇÃO DO CONTEXTO AOS DADOS
@@ -312,18 +318,17 @@ X_persona = (
     else X_contextual
 )
 
-
-    # --------------------------------------------------
-    # PIs
-    # --------------------------------------------------
+# --------------------------------------------------
+# PIs
+# --------------------------------------------------
 @st.cache_data
 def compute_kpis(X):
-        return {
-            "pi1": pi1_positional_distribution(X),
-            "pi2": pi2_distance_travelled(X),
-            "pi3": pi3_threat_frequency_by_zone(X),
-            "pi4": pi4_reaction_intensity(X),
-        }
+    return {
+        "pi1": pi1_positional_distribution(X),
+        "pi2": pi2_distance_travelled(X),
+        "pi3": pi3_threat_frequency_by_zone(X),
+        "pi4": pi4_reaction_intensity(X),
+    }
 
 kpis = compute_kpis(X_persona)
 
@@ -332,9 +337,8 @@ kpis = compute_kpis(X_persona)
 # DASHBOARD — TREINADOR PRINCIPAL
 # ==================================================
 if st.session_state.persona == "Treinador Principal":
-
     selected_pi = st.sidebar.radio(
-        "Selecionar indicador",
+        "",
         [
             "PI 3 — Origem Espacial das Ameaças",
             "PI 5 — Canal de Progressão das Ameaças"
@@ -342,7 +346,6 @@ if st.session_state.persona == "Treinador Principal":
         key="pi_tr_principal"
     )
 
-    # BOTÃO (logo a seguir)
     st.sidebar.markdown("---")
     if st.sidebar.button("🔄 Mudar perfil", key="btn_mudar_perfil"):
         st.session_state.page = "persona"
@@ -389,7 +392,7 @@ if st.session_state.persona == "Treinador Principal":
 elif st.session_state.persona == "Treinador de Guarda-Redes":
 
     selected_pi = st.sidebar.radio(
-        "Selecionar indicador (Guarda-Redes)",
+        "",
         [
             "PI 1 — Distribuição Posicional",
             "PI 2 — Distância Percorrida",
@@ -440,19 +443,6 @@ elif st.session_state.persona == "Treinador de Guarda-Redes":
 
 
        st.plotly_chart(fig, use_container_width=True)
-
-       view_mode = st.sidebar.radio(
-           "Modo de visualização",
-           ["Pontinhos (posições)", "Densidade (padrão)"],
-           index=0
-        )
-
-       zone_color_mode = st.sidebar.radio(
-           "Cores das zonas",
-           ["Semântico (Azul/Verde/Vermelho)", "Neutro"],
-           index=0
-        )
-
 
        pi1 = kpis.get("pi1")
   
